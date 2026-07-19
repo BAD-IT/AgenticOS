@@ -29,7 +29,12 @@ body, html {
     font-size: 14px;
 }
 
-#workspaces .workspace {
+#workspaces {
+    display: flex;
+    align-items: center;
+}
+
+.workspace {
     display: inline-block;
     padding: 2px 8px;
     margin-right: 5px;
@@ -38,11 +43,29 @@ body, html {
     transition: all 0.2s;
 }
 
-#workspaces .workspace.active {
+.workspace:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-radius: 4px;
+}
+
+.workspace.active {
     background: var(--accent);
     color: white;
     border-radius: 4px;
     font-weight: bold;
+}
+
+#add-workspace-btn {
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin-left: 5px;
+}
+#add-workspace-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 #canvas-toggle {
@@ -57,13 +80,35 @@ body, html {
     text-decoration: underline;
 }
 
-#grid {
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
-    gap: 15px;
+#flex-container {
+    display: flex;
+    flex-direction: row;
     padding: 15px;
     flex-grow: 1;
     height: calc(100vh - 50px);
+    gap: 0;
+    box-sizing: border-box;
+}
+
+.resizer {
+    width: 15px;
+    cursor: col-resize;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+.resizer::after {
+    content: '';
+    display: block;
+    width: 2px;
+    height: 30px;
+    background: rgba(100, 140, 255, 0.3);
+    border-radius: 2px;
+    transition: background 0.2s;
+}
+.resizer:hover::after, .resizer.dragging::after {
+    background: var(--accent);
 }
 
 .panel {

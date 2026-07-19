@@ -1,17 +1,62 @@
 const cliInput = document.getElementById('cli-input');
 const chatHistory = document.getElementById('chat-history');
 const terminalFeed = document.getElementById('terminal-feed');
-const workspaces = document.querySelectorAll('.workspace');
+const workspacesContainer = document.getElementById('workspaces');
+const addWorkspaceBtn = document.getElementById('add-workspace-btn');
 const canvasToggle = document.getElementById('canvas-toggle');
 const contextContent = document.getElementById('context-content');
 const canvasIframe = document.getElementById('canvas-iframe');
 
 let currentWorkspace = 1;
+let totalWorkspaces = 1;
 let canvasMode = false;
 
-// Quick commands
+// Resizer logic
+let isDraggingLeft = false;
+let isDraggingRight = false;
+const leftPanel = document.getElementById('left-panel');
+const rightPanel = document.getElementById('right-panel');
+const flexContainer = document.getElementById('flex-container');
+const resizerLeft = document.getElementById('resizer-left');
+const resizerRight = document.getElementById('resizer-right');
+
+resizerLeft.addEventListener('mousedown', () => { isDraggingLeft = true; resizerLeft.classList.add('dragging'); });
+resizerRight.addEventListener('mousedown', () => { isDraggingRight = true; resizerRight.classList.add('dragging'); });
+
+document.addEventListener('mousemove', (e) => {
+    if (isDraggingLeft) {
+        let newWidth = e.clientX - flexContainer.offsetLeft - 15;
+        if (newWidth > 100 && newWidth < flexContainer.offsetWidth - 200) {
+            leftPanel.style.width = `${newWidth}px`;
+        }
+    }
+    if (isDraggingRight) {
+        let newWidth = flexContainer.offsetWidth - (e.clientX - flexContainer.offsetLeft) - 15;
+        if (newWidth > 100 && newWidth < flexContainer.offsetWidth - 200) {
+            rightPanel.style.width = `${newWidth}px`;
+        }
+    }
+});
+
+document.addEventListener('mouseup', () => {
+    isDraggingLeft = false;
+    isDraggingRight = false;
+    resizerLeft.classList.remove('dragging');
+    resizerRight.classList.remove('dragging');
+});
+
+// Quick commands & greetings
+const GREETINGS = ["hi", "hello", "hey", "sup", "greetings"];
+
 const handleQuickCommand = (cmd) => {
-    switch(cmd.trim()) {
+    const text = cmd.trim().toLowerCase();
+    
+    if (GREETINGS.includes(text)) {
+        appendChat("Hello! I am Agentic OS. How can I assist you in this workspace?", 'agent');
+        return true;
+    }
+    
+    switch(text) {
         case '/clear':
             chatHistory.innerHTML = '';
             return true;
@@ -65,22 +110,53 @@ cliInput.addEventListener('keydown', (e) => {
     }
 });
 
+// Workspace switching
+const switchWorkspace = (wsNum) => {
+    if (wsNum > totalWorkspaces || wsNum < 1) return;
+    document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
+    document.querySelector(`[data-ws="${wsNum}"]`).classList.add('active');
+    currentWorkspace = wsNum;
+    document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum} <button id="canvas-toggle">[Toggle Canvas]</button>`;
+    appendChat(`Switched to Workspace ${wsNum}`, 'system');
+    bindCanvasToggle();
+};
+
+// Bind clicks to existing workspace tabs
+document.querySelectorAll('.workspace').forEach(w => {
+    w.addEventListener('click', (e) => switchWorkspace(parseInt(e.target.getAttribute('data-ws'))));
+});
+
+// Add new workspace
+addWorkspaceBtn.addEventListener('click', () => {
+    if (totalWorkspaces >= 10) {
+        appendChat('Maximum of 10 workspaces reached.', 'system');
+        return;
+    }
+    totalWorkspaces++;
+    const span = document.createElement('span');
+    span.className = 'workspace';
+    span.setAttribute('data-ws', totalWorkspaces);
+    span.innerText = totalWorkspaces;
+    span.addEventListener('click', (e) => switchWorkspace(parseInt(e.target.getAttribute('data-ws'))));
+    workspacesContainer.insertBefore(span, addWorkspaceBtn);
+    switchWorkspace(totalWorkspaces);
+});
+
 // Workspace switching via Alt+1 to Alt+0
 window.addEventListener('keydown', (e) => {
     if (e.altKey && e.key >= '0' && e.key <= '9') {
         e.preventDefault();
         const wsNum = e.key === '0' ? 10 : parseInt(e.key);
-        workspaces.forEach(w => w.classList.remove('active'));
-        document.querySelector(`[data-ws="${wsNum}"]`).classList.add('active');
-        currentWorkspace = wsNum;
-        document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum} <button id="canvas-toggle">[Toggle Canvas]</button>`;
-        appendChat(`Switched to Workspace ${wsNum}`, 'system');
-        bindCanvasToggle();
+        if (wsNum <= totalWorkspaces) {
+            switchWorkspace(wsNum);
+        }
     }
 });
 
 const bindCanvasToggle = () => {
-    document.getElementById('canvas-toggle').addEventListener('click', () => {
+    const toggleBtn = document.getElementById('canvas-toggle');
+    if (!toggleBtn) return;
+    toggleBtn.addEventListener('click', () => {
         canvasMode = !canvasMode;
         if (canvasMode) {
             contextContent.style.display = 'none';
@@ -121,5 +197,10 @@ const connectSockets = () => {
 connectSockets();
 
 // Always focus input
-document.addEventListener('click', () => cliInput.focus());
+document.addEventListener('click', (e) => {
+    // Don't focus if they clicked a button or resizer
+    if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('resizer') && !e.target.classList.contains('workspace')) {
+        cliInput.focus();
+    }
+});
 cliInput.focus();
