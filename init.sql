@@ -41,3 +41,10 @@ CREATE TABLE IF NOT EXISTS error_queue (
     payload JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS agent_skills (
+    id SERIAL PRIMARY KEY,
+    task_intent TEXT,
+    skill_abstraction TEXT,
+    embedding vector(3)
+);
