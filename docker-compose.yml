@@ -23,6 +23,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-agenticos}
     volumes:
       - ./src:/app/src
+      - ./ui:/app/ui
       - ./workspace/inbox:/workspace/inbox:ro
       - ./workspace/outbox:/workspace/outbox:rw
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
