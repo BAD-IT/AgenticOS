@@ -12,7 +12,7 @@ async def test_db_connection_and_queues():
     rows = await conn.fetch("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
     tables = [row["tablename"] for row in rows]
     
-    expected_tables = ["user_input_queue", "tasks_queue", "pending_queue", "notification_queue", "error_queue", "agent_skills"]
+    expected_tables = ["system_tasks", "system_notifications", "agent_skills"]
     for table in expected_tables:
         assert table in tables, f"Expected table {table} to exist in DB"
         
