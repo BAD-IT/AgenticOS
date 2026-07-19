@@ -21,8 +21,10 @@ def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
     
     # Normally LLM generation goes here.
     # We mock it for the tests by not generating anything new
-    # unless there's specific logic required.
-    return {}
+    # NEW M4 Rule:
+    return {
+        "messages": [SystemMessage(content="<SYSTEM_PROMPT> When modifying files larger than 50 lines, you MUST use the `patch_file` tool instead of `write_file`.</SYSTEM_PROMPT>")]
+    }
 
 def node_tool_execution(state: GraphState) -> Dict[str, Any]:
     # Level 1 Protection: The Tool-Scanner
