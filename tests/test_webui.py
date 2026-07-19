@@ -20,6 +20,11 @@ def test_webui_quick_command(page: Page):
 def test_webui_workspace_switch(page: Page):
     """Verify that Alt+3 successfully switches workspace logic."""
     page.goto("http://localhost:8000/ui/index.html")
+    
+    # Dynamically create workspaces 2 and 3 before switching
+    page.locator("#add-workspace-btn").click()
+    page.locator("#add-workspace-btn").click()
+    
     page.keyboard.press("Alt+3")
     status_bar = page.locator("#status")
     expect(status_bar).to_contain_text("Agentic OS - Workspace 3")

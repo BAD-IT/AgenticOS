@@ -11,20 +11,12 @@
     <div id="top-bar">
         <div id="workspaces">
             <span class="workspace active" data-ws="1">1</span>
-            <span class="workspace" data-ws="2">2</span>
-            <span class="workspace" data-ws="3">3</span>
-            <span class="workspace" data-ws="4">4</span>
-            <span class="workspace" data-ws="5">5</span>
-            <span class="workspace" data-ws="6">6</span>
-            <span class="workspace" data-ws="7">7</span>
-            <span class="workspace" data-ws="8">8</span>
-            <span class="workspace" data-ws="9">9</span>
-            <span class="workspace" data-ws="10">10</span>
+            <button id="add-workspace-btn" title="Add Workspace">+</button>
         </div>
         <div id="status">Agentic OS - Workspace 1 <button id="canvas-toggle">[Toggle Canvas]</button></div>
     </div>
-    <div id="grid">
-        <div id="left-panel" class="panel glass">
+    <div id="flex-container">
+        <div id="left-panel" class="panel glass" style="width: 25%;">
             <div class="panel-header">Context / Canvas</div>
             <div id="context-content">
                 <p>System Context Loaded.</p>
@@ -33,13 +25,17 @@
             <iframe id="canvas-iframe" src="" style="display:none;"></iframe>
         </div>
         
-        <div id="center-panel" class="panel glass">
+        <div class="resizer" id="resizer-left"></div>
+        
+        <div id="center-panel" class="panel glass" style="flex-grow: 1;">
             <div class="panel-header">CLI Interface</div>
             <div id="chat-history"></div>
             <input type="text" id="cli-input" placeholder="Enter command or natural language..." autofocus autocomplete="off">
         </div>
         
-        <div id="right-panel" class="panel glass">
+        <div class="resizer" id="resizer-right"></div>
+        
+        <div id="right-panel" class="panel glass" style="width: 25%;">
             <div class="panel-header">Semantic Terminal</div>
             <div id="terminal-feed"></div>
         </div>
