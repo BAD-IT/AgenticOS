@@ -26,10 +26,31 @@ async def submit_task(task: TaskObject):
         conn = await asyncpg.connect(DB_URL)
         msg_id = str(uuid4())
         await conn.execute(
-            "INSERT INTO user_input_queue (message_id, payload) VALUES ($1, $2)",
+            "INSERT INTO system_tasks (message_id, payload, status, workspace_id) VALUES ($1, $2, 'USER_INPUT', 1)",
             msg_id, task.model_dump_json()
         )
         await conn.close()
         return {"status": "accepted", "message_id": msg_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/workspaces/{workspace_id}/history")
+async def get_workspace_history(workspace_id: int):
+    """Fetch all tasks for a given workspace to restore UI state."""
+    try:
+        conn = await asyncpg.connect(DB_URL)
+        rows = await conn.fetch(
+            "SELECT payload, status, created_at FROM system_tasks WHERE workspace_id = $1 ORDER BY created_at ASC",
+            workspace_id
+        )
+        await conn.close()
+        
+        history = []
+        for r in rows:
+            history.append({
+                "status": r["status"],
+                "payload": r["payload"]
+            })
+        return {"history": history}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -16,7 +16,7 @@ async def run_tests():
 
     print("\n--- Test 2: Idle Mode Activation (Garbage Collection) ---")
     # Mock empty queues
-    queues = {"tasks_queue": 0, "pending_queue": 0, "user_input_queue": 5}
+    queues = {"TASK": 0, "PENDING": 0, "USER_INPUT": 5}
     is_idle = check_queues_empty(queues)
     print(f"System Idle State: {is_idle}")
     assert is_idle is True

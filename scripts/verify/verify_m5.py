@@ -27,7 +27,7 @@ async def test_ingress():
         
         # Verify DB insertion
         conn = await asyncpg.connect(DB_URL)
-        row = await conn.fetchrow("SELECT * FROM user_input_queue ORDER BY created_at DESC LIMIT 1")
+        row = await conn.fetchrow("SELECT * FROM system_tasks ORDER BY created_at DESC LIMIT 1")
         print(f"DB Inserted Payload: {row['payload']}")
         assert "analyze logs" in row['payload']
         await conn.close()

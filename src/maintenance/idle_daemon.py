@@ -9,7 +9,7 @@ WORKSPACE_OUTBOX = os.getenv("OUTBOX_DIR", "workspace/outbox")
 
 def check_queues_empty(queue_counts: dict) -> bool:
     """Strict Idle Mode: Checks if Tasks and Pending queues are zero."""
-    return queue_counts.get("tasks_queue", 0) == 0 and queue_counts.get("pending_queue", 0) == 0
+    return queue_counts.get("TASK", 0) == 0 and queue_counts.get("PENDING", 0) == 0
 
 def garbage_collection():
     """Purges temporary files from outbox to prevent disk bloat."""

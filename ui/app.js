@@ -110,14 +110,33 @@ cliInput.addEventListener('keydown', (e) => {
     }
 });
 
-// Workspace switching
+const loadWorkspaceHistory = async (wsNum) => {
+    try {
+        const res = await fetch(`/api/v1/workspaces/${wsNum}/history`);
+        const data = await res.json();
+        chatHistory.innerHTML = '';
+        if (data.history) {
+            data.history.forEach(item => {
+                let parsed = item.payload;
+                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                const text = parsed.action || parsed.message || JSON.stringify(parsed);
+                appendChat(text, item.status === 'USER_INPUT' ? 'user' : 'agent');
+            });
+        }
+        appendChat(`Switched to Workspace ${wsNum}`, 'system');
+    } catch (e) {
+        console.error("Failed to load history", e);
+        appendChat(`Switched to Workspace ${wsNum}`, 'system');
+    }
+};
+
 const switchWorkspace = (wsNum) => {
     if (wsNum > totalWorkspaces || wsNum < 1) return;
     document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
     document.querySelector(`[data-ws="${wsNum}"]`).classList.add('active');
     currentWorkspace = wsNum;
     document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum} <button id="canvas-toggle">[Toggle Canvas]</button>`;
-    appendChat(`Switched to Workspace ${wsNum}`, 'system');
+    loadWorkspaceHistory(wsNum);
     bindCanvasToggle();
 };
 
@@ -204,3 +223,4 @@ document.addEventListener('click', (e) => {
     }
 });
 cliInput.focus();
+loadWorkspaceHistory(currentWorkspace);
