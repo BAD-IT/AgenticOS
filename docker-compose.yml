@@ -1,4 +1,4 @@
-Name: "AgenticOS"
+name: "AgenticOS"
 
 services:
   db:
