@@ -1,6 +1,7 @@
 import os
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException, status
+from fastapi.staticfiles import StaticFiles
 import asyncpg
 from src.core.models import TaskObject
 from src.api.websockets import router as ws_router
@@ -10,6 +11,10 @@ app.include_router(ws_router)
 
 # Resolve DB via environment or localhost for the isolated test runner
 DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/agenticos")
+
+# Mount the static UI
+os.makedirs("ui", exist_ok=True)
+app.mount("/ui", StaticFiles(directory="ui"), name="ui")
 
 @app.get("/")
 def read_root():
