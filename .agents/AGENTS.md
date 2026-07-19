@@ -18,6 +18,7 @@ We strictly follow an FDD workflow orchestrated via GitHub CLI (`gh`).
 *   **Rule 3:** To understand the scope of work, read the specific issue using `gh issue view <number>`.
 *   **Rule 4:** Create a new feature branch for every issue: `git checkout -b feat/issue-<number>-<short-desc>`.
 *   **Rule 5:** When the feature is complete and tests pass, push the branch and create a PR linking to the issue using `gh pr create`.
+*   **Rule 6:** After the PR is created, merge it and clean up the feature branch using `gh pr merge --merge --delete-branch`, ensuring the issue is closed.
 
 ## 4. Architectural Golden Rules
 1.  **Zero-Trust:** Workers execute in isolation. File access is strictly limited to mounted `/workspace/inbox` and `/workspace/outbox`.
@@ -32,7 +33,7 @@ When asked to implement a feature, always output your plan in this format before
 3.  [ ] Write core logic (Python/Rust).
 4.  [ ] Test within the local OrbStack layout.
 
-## Rule 6: Testing Strategy (Avoid Token Waste)
+## Rule 7: Testing Strategy (Avoid Token Waste)
 DO NOT use strict Test-Driven Development (TDD).
 1. Treat Pydantic schemas as your primary validation layer. Do not write pytest functions to check type enforcement.
 2. Write the core logic (Nodes, Edges, Queues) first.
