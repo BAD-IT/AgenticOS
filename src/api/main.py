@@ -13,7 +13,6 @@ app.include_router(ws_router)
 DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/agenticos")
 
 # Mount the static UI
-os.makedirs("ui", exist_ok=True)
 app.mount("/ui", StaticFiles(directory="ui"), name="ui")
 
 @app.get("/")

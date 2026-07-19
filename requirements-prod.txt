@@ -4,3 +4,4 @@ asyncpg
 langgraph
 fastapi
 uvicorn
+litellm
