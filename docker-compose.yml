@@ -1,0 +1,41 @@
+Name: "AgenticOS"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: agenticos_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-agenticos}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  orchestrator:
+    # Use OrbStack as the container runtime on the host system. The docker-compose configuration remains the same.
+    build: .
+    container_name: agenticos_orchestrator
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-agenticos}
+    volumes:
+      - ./src:/app/src
+      - ./workspace:/workspace
+    depends_on:
+      - db
+
+  artifact_runner:
+    image: python:3.12-slim
+    container_name: agenticos_artifact_runner
+    command: tail -f /dev/null
+    volumes:
+      - ./workspace/outbox:/sandbox
+    # Deliberately no network to DB or internal API
+    network_mode: none
+    mem_limit: 512m
+    cpus: "0.5"
+
+volumes:
+  pgdata:
