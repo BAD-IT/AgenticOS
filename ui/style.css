@@ -68,17 +68,6 @@ body, html {
     background: rgba(255, 255, 255, 0.1);
 }
 
-#canvas-toggle {
-    background: none;
-    border: none;
-    color: var(--accent);
-    cursor: pointer;
-    font-family: var(--font-mono);
-}
-
-#canvas-toggle:hover {
-    text-decoration: underline;
-}
 
 #flex-container {
     display: flex;
@@ -144,13 +133,6 @@ body, html {
     font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.5;
-}
-
-#canvas-iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    flex-grow: 1;
 }
 
 #cli-input {

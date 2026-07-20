@@ -4,7 +4,7 @@ const terminalFeed = document.getElementById('terminal-feed');
 const workspacesContainer = document.getElementById('workspaces');
 const addWorkspaceBtn = document.getElementById('add-workspace-btn');
 const contextContent = document.getElementById('context-content');
-const canvasIframe = document.getElementById('canvas-iframe');
+
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
 
@@ -156,6 +156,7 @@ const switchWorkspace = (wsNum) => {
     currentWorkspace = wsNum;
     document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum}`;
     loadWorkspaceHistory(wsNum);
+    fetchDebugTraces();
 };
 
 // Bind clicks to existing workspace tabs
@@ -210,6 +211,13 @@ tabBtns.forEach(btn => {
         // Scroll to bottom if switching back to chat or terminal
         if (targetId === 'chat-tab') chatHistory.scrollTop = chatHistory.scrollHeight;
         if (targetId === 'telemetry-tab') terminalFeed.scrollTop = terminalFeed.scrollHeight;
+
+        if (targetId === 'database-tab') {
+            fetchDB();
+        }
+        if (targetId === 'debug-tab') {
+            fetchDebugTraces();
+        }
     });
 });
 
@@ -255,8 +263,9 @@ const connectSockets = () => {
                 const loader = document.getElementById('chat-loading-indicator');
                 if (loader) loader.style.display = 'none';
                 
-                // If a task changed state, re-fetch queues to update the Telemetry tab
+                // If a task changed state, re-fetch queues and debug traces
                 fetchQueues();
+                fetchDebugTraces();
             }
         } catch(err) {
             console.error(err);
@@ -427,8 +436,6 @@ setInterval(() => {
     if (inboxTree) fetchWorkspaceFiles();
 }, 10000);
 
-}, 10000);
-
 const updateQueueCounts = (counts) => {
     let ingest = (counts['USER_INPUT'] || 0) + (counts['TASK'] || 0);
     let process = (counts['PENDING'] || 0) + (counts['EMBEDDING'] || 0) + (counts['IO_WAIT'] || 0);
@@ -465,9 +472,99 @@ const fetchQueues = async () => {
     }
 };
 
+const fetchDebugTraces = async () => {
+    const debugFeed = document.getElementById('debug-feed');
+    const cognitiveTrace = document.getElementById('cognitive-trace-feed');
+    if (!debugFeed) return;
+    
+    try {
+        const res = await fetch(`/api/v1/debug/traces/${currentWorkspace}`);
+        if (!res.ok) throw new Error('Failed to fetch traces');
+        const data = await res.json();
+        const traces = data.traces || [];
+        
+        if (traces.length === 0) {
+            debugFeed.innerHTML = '<div style="color: #64748b; font-style: italic;">No active trace...</div>';
+            if (cognitiveTrace) cognitiveTrace.innerHTML = '<div style="color: #64748b; font-style: italic;">No active trace...</div>';
+            return;
+        }
+        
+        let htmlFull = '';
+        let htmlMinimal = '';
+        
+        traces.forEach(trace => {
+            const timeStr = new Date(trace.created_at).toLocaleTimeString();
+            let nodeColor = '#3b82f6'; // default blue
+            let icon = '⚙️';
+            if (trace.node_name.toLowerCase().includes('error') || trace.node_name.toLowerCase().includes('fallback')) {
+                nodeColor = '#ef4444'; // red
+                icon = '⚠️';
+            } else if (trace.node_name.toLowerCase().includes('result')) {
+                nodeColor = '#22c55e'; // green
+                icon = '✅';
+            } else if (trace.node_name.toLowerCase().includes('review')) {
+                nodeColor = '#a855f7'; // purple
+                icon = '🔍';
+            }
+            
+            // Format state diff
+            let diffHtml = '';
+            if (trace.state_diff) {
+                try {
+                    const diffObj = typeof trace.state_diff === 'string' ? JSON.parse(trace.state_diff) : trace.state_diff;
+                    diffHtml = `<pre style="margin-top:5px; padding:8px; background:rgba(0,0,0,0.4); border-radius:4px; overflow-x:auto; font-size:11px;">${JSON.stringify(diffObj, null, 2)}</pre>`;
+                } catch(e) {
+                    diffHtml = `<div style="margin-top:5px; color:#94a3b8;">${trace.state_diff}</div>`;
+                }
+            }
+            
+            // Full UI
+            htmlFull += `
+                <div style="margin-bottom:15px; border-left:2px solid ${nodeColor}; padding-left:10px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span style="color:${nodeColor}; font-weight:bold;">${icon} [${trace.node_name}]</span>
+                        <span style="color:#64748b; font-size:10px;">${timeStr} | Task: ${trace.task_id.split('-')[0]}</span>
+                    </div>
+                    ${diffHtml}
+                </div>
+            `;
+            
+            // Minimal UI (Left Panel)
+            htmlMinimal += `
+                <div style="border-left:2px solid ${nodeColor}; padding-left:5px; margin-bottom:5px;">
+                    <span style="color:${nodeColor};">${icon} [${trace.node_name}]</span>
+                    <div style="color:#64748b; font-size:10px;">${timeStr}</div>
+                </div>
+            `;
+        });
+        
+        debugFeed.innerHTML = htmlFull;
+        if (cognitiveTrace) {
+            cognitiveTrace.innerHTML = htmlMinimal;
+            // Scroll to bottom
+            cognitiveTrace.scrollTop = cognitiveTrace.scrollHeight;
+        }
+        // Scroll to bottom for full feed
+        debugFeed.scrollTop = debugFeed.scrollHeight;
+        
+    } catch (e) {
+        console.error("Failed to load debug traces:", e);
+        debugFeed.innerHTML = '<div style="color: #ef4444;">Failed to load traces.</div>';
+    }
+};
+
+const clearDebugBtn = document.getElementById('clear-debug-btn');
+if (clearDebugBtn) {
+    clearDebugBtn.addEventListener('click', () => {
+        const debugFeed = document.getElementById('debug-feed');
+        if (debugFeed) debugFeed.innerHTML = '<div style="color: #64748b; font-style: italic;">Cleared. Awaiting state events...</div>';
+    });
+}
+
 fetchDB();
 fetchWorkspaceFiles();
 fetchQueues();
+fetchDebugTraces();
 
 // --- LOGS WEBSOCKET ---
 let logSocket;
