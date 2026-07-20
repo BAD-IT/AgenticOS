@@ -13,33 +13,84 @@
             <span class="workspace active" data-ws="1">1</span>
             <button id="add-workspace-btn" title="Add Workspace">+</button>
         </div>
-        <div id="status">Agentic OS - Workspace 1 <button id="canvas-toggle">[Toggle Canvas]</button></div>
+        <div class="status-container">
+            <span id="idle-status" class="idle-indicator"><span class="dot"></span>System: Idle</span>
+            <div id="status">Agentic OS - Workspace 1 <button id="settings-btn" title="Settings" style="background:none;border:none;cursor:pointer;font-size:14px;margin-left:10px;">⚙️</button></div>
+        </div>
     </div>
     <div id="flex-container">
         <div id="left-panel" class="panel glass" style="width: 25%;">
-            <div class="panel-header">Context / Canvas</div>
+            <div class="panel-header">Workspace</div>
             <div id="context-content">
                 <p>System Context Loaded.</p>
                 <p>Workspace initialized securely.</p>
             </div>
-            <iframe id="canvas-iframe" src="" style="display:none;"></iframe>
         </div>
         
         <div class="resizer" id="resizer-left"></div>
         
         <div id="center-panel" class="panel glass" style="flex-grow: 1;">
-            <div class="panel-header">CLI Interface</div>
-            <div id="chat-history"></div>
-            <input type="text" id="cli-input" placeholder="Enter command or natural language..." autofocus autocomplete="off">
+            <div class="panel-header tabs">
+                <button class="tab-btn active" data-target="chat-tab">Chat</button>
+                <button class="tab-btn" data-target="telemetry-tab">Telemetry</button>
+            </div>
+            
+            <div id="chat-tab" class="tab-content" style="display: flex;">
+                <div id="chat-history"></div>
+                <div id="chat-loading-indicator" style="display: none;">
+                    <div class="loader-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span class="loader-text">Agent is thinking...</span>
+                </div>
+                <input type="text" id="cli-input" placeholder="Enter command or natural language..." autofocus autocomplete="off">
+            </div>
+
+            <div id="telemetry-tab" class="tab-content" style="display: none;">
+                <div id="langgraph-state">[ <span class="state active">🧠 Orchestrator</span> ] -> [ <span class="state">⚙️ Working</span> ] -> [ <span class="state">🔍 Review</span> ]</div>
+                    <div class="telemetry-header">
+                        <div class="filter">
+                            <input type="checkbox" id="idle-tasks"> <label for="idle-tasks">Show Idle Tasks</label>
+                        </div>
+                    </div>
+                <div id="terminal-feed"></div>
+            </div>
         </div>
         
         <div class="resizer" id="resizer-right"></div>
         
         <div id="right-panel" class="panel glass" style="width: 25%;">
-            <div class="panel-header">Semantic Terminal</div>
-            <div id="terminal-feed"></div>
+            <div class="panel-header">Preview & Artifacts</div>
+            <div id="preview-content">
+                <iframe id="canvas-iframe" src="" style="display:none;"></iframe>
+            </div>
         </div>
     </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal glass" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="settings-modal-title">System Settings</span>
+                <button id="close-settings-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="settings-modal-body">
+                Loading configuration...
+            </div>
+        </div>
+    </div>
+
+    <!-- Payload Inspector Modal -->
+    <div id="payload-modal" class="modal glass" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modal-title">Payload Inspector</span>
+                <button id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body-content"></div>
+        </div>
+    </div>
+
     <script src="/ui/app.js"></script>
 </body>
 </html>

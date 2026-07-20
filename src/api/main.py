@@ -4,13 +4,14 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 import asyncpg
 from src.core.models import TaskObject
+from src.core.config import settings
 from src.api.websockets import router as ws_router
 
 app = FastAPI(title="Agentic OS")
 app.include_router(ws_router)
 
-# Resolve DB via environment or localhost for the isolated test runner
-DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/agenticos")
+# Resolve DB via central settings
+DB_URL = settings.DATABASE_URL
 
 # Mount the static UI
 app.mount("/ui", StaticFiles(directory="ui"), name="ui")
@@ -18,6 +19,17 @@ app.mount("/ui", StaticFiles(directory="ui"), name="ui")
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "Agentic OS Orchestrator is running"}
+
+@app.get("/api/v1/settings")
+def get_settings():
+    """Returns the current active configuration for the WebUI."""
+    return {
+        "LLM_MODEL": settings.LLM_MODEL,
+        "OLLAMA_API_BASE": settings.OLLAMA_API_BASE,
+        "DATABASE_URL": settings.DATABASE_URL.replace(settings.DATABASE_URL.split('@')[0].split('//')[1], "****:****"),
+        "INBOX_DIR": settings.INBOX_DIR,
+        "OUTBOX_DIR": settings.OUTBOX_DIR
+    }
 
 @app.post("/api/v1/tasks/submit", status_code=status.HTTP_202_ACCEPTED)
 async def submit_task(task: TaskObject):

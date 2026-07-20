@@ -2,10 +2,11 @@ import os
 import glob
 import logging
 from typing import List
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-WORKSPACE_OUTBOX = os.getenv("OUTBOX_DIR", "workspace/outbox")
+WORKSPACE_OUTBOX = settings.OUTBOX_DIR
 
 def check_queues_empty(queue_counts: dict) -> bool:
     """Strict Idle Mode: Checks if Tasks and Pending queues are zero."""
