@@ -39,8 +39,8 @@ services:
       dockerfile: Dockerfile.runner
     container_name: agenticos_artifact_runner
     volumes:
-      - ./workspace/outbox:/sandbox
-    # Deliberately no network to DB or internal API
+      - ./workspace/inbox:/workspace/inbox:ro
+      - ./workspace/outbox:/workspace/outbox:rw
     network_mode: none
     mem_limit: 512m
     cpus: "0.5"
