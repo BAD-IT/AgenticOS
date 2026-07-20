@@ -2,6 +2,7 @@ import os
 import glob
 import logging
 from typing import List
+from langchain_community.embeddings import OllamaEmbeddings
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -29,15 +30,23 @@ def flush_vram():
     logger.info("VRAM Flush: Unloading heavy models from GPU to free up 64GB boundary.")
     return True
 
-def mock_embedding(text: str) -> List[float]:
-    """Generates a deterministic minimal 3D vector for testing."""
-    length = len(text)
-    return [float(length % 10) / 10.0, float(length % 5) / 5.0, 0.5]
+def get_embedding(text: str) -> List[float]:
+    """Generates a real vector embedding using Ollama."""
+    try:
+        embeddings = OllamaEmbeddings(
+            model=settings.EMBEDDING_MODEL,
+            base_url=settings.OLLAMA_API_BASE
+        )
+        return embeddings.embed_query(text)
+    except Exception as e:
+        logger.error(f"Failed to generate embedding: {e}")
+        # Fallback to zero-vector to prevent crash during DB insert if Ollama is unreachable
+        return [0.0] * 768
 
 def generate_skill_from_task(task_intent: str, log_history: str) -> dict:
     """Experience Consolidation: Analyzes successful iterations into an abstract skill."""
     skill_abstraction = f"Abstracted methodology for: {task_intent}. Learned from {len(log_history.splitlines())} steps."
-    embedding = mock_embedding(skill_abstraction)
+    embedding = get_embedding(skill_abstraction)
     
     return {
         "task_intent": task_intent,
