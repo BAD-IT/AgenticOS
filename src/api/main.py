@@ -66,3 +66,48 @@ async def get_workspace_history(workspace_id: int):
         return {"history": history}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/db/query")
+async def db_query(table: str = "system_tasks", search: str = ""):
+    """Read-only DB query for the WebUI Database Tab."""
+    allowed_tables = ["system_tasks", "system_notifications"]
+    if table not in allowed_tables:
+        raise HTTPException(status_code=400, detail="Invalid table")
+    try:
+        conn = await asyncpg.connect(DB_URL)
+        if search:
+            query = f"SELECT * FROM {table} WHERE payload ILIKE $1 ORDER BY created_at DESC LIMIT 50"
+            rows = await conn.fetch(query, f"%{search}%")
+        else:
+            query = f"SELECT * FROM {table} ORDER BY created_at DESC LIMIT 50"
+            rows = await conn.fetch(query)
+        await conn.close()
+        
+        result = [dict(row) for row in rows]
+        # Convert datetime to string for json serialization
+        for r in result:
+            if 'created_at' in r and r['created_at']:
+                r['created_at'] = r['created_at'].isoformat()
+        return {"data": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/workspace/files")
+def get_workspace_files():
+    """List files in the inbox and outbox for the Explorer."""
+    import os
+    def list_files(directory):
+        files = []
+        if os.path.exists(directory):
+            for root, _, filenames in os.walk(directory):
+                for f in filenames:
+                    if f.startswith('.'): continue
+                    rel_dir = os.path.relpath(root, directory)
+                    if rel_dir == '.': rel_dir = ''
+                    files.append(os.path.join(rel_dir, f) if rel_dir else f)
+        return files
+    
+    return {
+        "inbox": list_files(settings.INBOX_DIR),
+        "outbox": list_files(settings.OUTBOX_DIR)
+    }

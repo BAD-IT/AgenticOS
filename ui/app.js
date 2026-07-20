@@ -353,3 +353,100 @@ const appendTelemetry = (icon, category, message, type = 'info', rawRow = null) 
     terminalFeed.appendChild(div);
     terminalFeed.scrollTop = terminalFeed.scrollHeight;
 };
+
+// --- DATABASE TAB ---
+const dbTable = document.getElementById('db-table');
+const dbSelect = document.getElementById('db-table-select');
+const dbSearch = document.getElementById('db-search');
+const dbRefreshBtn = document.getElementById('db-refresh-btn');
+
+const fetchDB = async () => {
+    if (!dbTable) return;
+    try {
+        const res = await fetch(`/api/v1/db/query?table=${dbSelect.value}&search=${encodeURIComponent(dbSearch.value)}`);
+        const result = await res.json();
+        if (result.data && result.data.length > 0) {
+            const keys = Object.keys(result.data[0]);
+            let html = `<thead><tr style="border-bottom:1px solid #334155;">`;
+            keys.forEach(k => html += `<th style="padding:5px; text-align:left;">${k}</th>`);
+            html += `</tr></thead><tbody>`;
+            result.data.forEach(row => {
+                html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">`;
+                keys.forEach(k => {
+                    let val = row[k];
+                    if (typeof val === 'object') val = JSON.stringify(val);
+                    html += `<td style="padding:5px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title='${val}'>${val}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</tbody>`;
+            dbTable.innerHTML = html;
+        } else {
+            dbTable.innerHTML = `<tr><td>No data found.</td></tr>`;
+        }
+    } catch (err) {
+        dbTable.innerHTML = `<tr><td style="color:#ef4444;">Error fetching data.</td></tr>`;
+    }
+};
+if (dbRefreshBtn) dbRefreshBtn.addEventListener('click', fetchDB);
+if (dbSearch) dbSearch.addEventListener('keypress', (e) => { if (e.key === 'Enter') fetchDB(); });
+if (dbSelect) dbSelect.addEventListener('change', fetchDB);
+
+// --- WORKSPACE EXPLORER ---
+const inboxTree = document.getElementById('inbox-tree');
+const outboxTree = document.getElementById('outbox-tree');
+
+const fetchWorkspaceFiles = async () => {
+    if (!inboxTree || !outboxTree) return;
+    try {
+        const res = await fetch('/api/v1/workspace/files');
+        const data = await res.json();
+        
+        const renderTree = (files, ul) => {
+            if (!files || files.length === 0) {
+                ul.innerHTML = `<li style="color:#64748b; font-style:italic;">Empty</li>`;
+                return;
+            }
+            ul.innerHTML = files.map(f => `<li style="margin-bottom:3px;">📄 ${f}</li>`).join('');
+        };
+        renderTree(data.inbox, inboxTree);
+        renderTree(data.outbox, outboxTree);
+    } catch (e) {
+        console.error("Failed to load workspace files", e);
+    }
+};
+
+// Auto-refresh DB and Files every 10 seconds if active
+setInterval(() => {
+    if (document.getElementById('database-tab') && document.getElementById('database-tab').style.display === 'flex') {
+        fetchDB();
+    }
+    if (inboxTree) fetchWorkspaceFiles();
+}, 10000);
+
+fetchDB();
+fetchWorkspaceFiles();
+
+// --- LOGS WEBSOCKET ---
+let logSocket;
+const connectLogSocket = () => {
+    const logFeed = document.getElementById('log-feed');
+    if (!logFeed) return;
+    logSocket = new WebSocket(`ws://${location.host}/api/v1/stream/logs`);
+    logSocket.onmessage = (e) => {
+        const line = e.data;
+        const searchVal = document.getElementById('log-search')?.value.toLowerCase();
+        if (searchVal && !line.toLowerCase().includes(searchVal)) return;
+        
+        const div = document.createElement('div');
+        div.innerText = line;
+        logFeed.appendChild(div);
+        
+        // Auto-scroll
+        if (logFeed.scrollHeight - logFeed.scrollTop < logFeed.clientHeight + 100) {
+            logFeed.scrollTop = logFeed.scrollHeight;
+        }
+    };
+    logSocket.onclose = () => setTimeout(connectLogSocket, 5000);
+};
+connectLogSocket();
