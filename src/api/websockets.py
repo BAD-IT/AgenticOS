@@ -64,16 +64,25 @@ async def stream_chat(websocket: WebSocket):
             await conn.remove_listener("system_tasks_channel", handle_chat_update)
             await conn.close()
 
-@router.websocket("/api/v1/stream/logs")
-async def stream_logs(websocket: WebSocket):
+@router.websocket("/api/v1/stream/logs/{log_name}")
+async def stream_logs(websocket: WebSocket, log_name: str):
     """Stream backend logfiles via WebSocket."""
     await websocket.accept()
     import os
     import asyncio
-    log_file = "AgenticOS.log"
+    
+    allowed_logs = ["api", "orchestrator", "sandbox", "database"]
+    if log_name not in allowed_logs:
+        await websocket.send_text("Error: Invalid log file requested.")
+        await websocket.close()
+        return
+
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs")
+    log_file = os.path.join(log_dir, f"{log_name}.log")
     
     # Create an empty log file if it doesn't exist
     if not os.path.exists(log_file):
+        os.makedirs(log_dir, exist_ok=True)
         with open(log_file, 'w') as f:
             f.write("Log initialized.\n")
             
