@@ -21,7 +21,10 @@ from langchain_core.messages import HumanMessage
 
 llm = ChatOllama(model=settings.LLM_MODEL)
 
+from src.core.logging_config import orchestrator_logger as logger
+
 def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
+    logger.info(f"Orchestrator node_worker_thinking triggered for task: {state.current_task.intent if state.current_task else 'Unknown'}")
     # Proactive Clarification Check (Anti-Hallucination)
     if state.current_task and not state.current_task.parameters:
         state.current_task.status = TaskStatus.REQUIRES_CLARIFICATION
