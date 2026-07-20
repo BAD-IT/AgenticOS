@@ -6,7 +6,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from src.core.config import settings
 
 router = APIRouter()
-DB_URL = settings.DATABASE_URL
 
 @router.websocket("/api/v1/stream/notifications")
 async def stream_notifications(websocket: WebSocket):
@@ -21,7 +20,8 @@ async def stream_notifications(websocket: WebSocket):
             pass
 
     try:
-        conn = await asyncpg.connect(DB_URL)
+        pool = websocket.app.state.pool
+        conn = await pool.acquire()
         await conn.add_listener("system_notifications_channel", handle_notification)
         
         while True:
@@ -32,7 +32,7 @@ async def stream_notifications(websocket: WebSocket):
     finally:
         if conn:
             await conn.remove_listener("system_notifications_channel", handle_notification)
-            await conn.close()
+            await pool.release(conn)
 
 @router.websocket("/api/v1/stream/chat")
 async def stream_chat(websocket: WebSocket):
@@ -47,7 +47,8 @@ async def stream_chat(websocket: WebSocket):
             pass
 
     try:
-        conn = await asyncpg.connect(DB_URL)
+        pool = websocket.app.state.pool
+        conn = await pool.acquire()
         await conn.add_listener("system_tasks_channel", handle_chat_update)
         
         while True:
@@ -62,14 +63,12 @@ async def stream_chat(websocket: WebSocket):
     finally:
         if conn:
             await conn.remove_listener("system_tasks_channel", handle_chat_update)
-            await conn.close()
+            await pool.release(conn)
 
 @router.websocket("/api/v1/stream/logs/{log_name}")
 async def stream_logs(websocket: WebSocket, log_name: str):
     """Stream backend logfiles via WebSocket."""
     await websocket.accept()
-    import os
-    import asyncio
     
     allowed_logs = ["api", "orchestrator", "sandbox", "database"]
     if log_name not in allowed_logs:

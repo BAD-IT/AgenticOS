@@ -1,15 +1,23 @@
 import os
 from uuid import uuid4
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
+from src.memory.database import get_db_pool
 import asyncpg
 from src.core.models import TaskObject
 from src.core.config import settings
 from src.core.logging_config import api_logger
 from src.api.websockets import router as ws_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.pool = await get_db_pool(settings.DATABASE_URL)
+    yield
+    await app.state.pool.close()
+
 api_logger.info("Initializing Agentic OS FastAPI Orchestrator")
-app = FastAPI(title="Agentic OS")
+app = FastAPI(title="Agentic OS", lifespan=lifespan)
 app.include_router(ws_router)
 
 # Resolve DB via central settings
@@ -34,30 +42,28 @@ def get_settings():
     }
 
 @app.post("/api/v1/tasks/submit", status_code=status.HTTP_202_ACCEPTED)
-async def submit_task(task: TaskObject):
+async def submit_task(task: TaskObject, request: Request):
     """Agnostic REST Ingress: Validates payload and pushes to PostgreSQL."""
     try:
-        conn = await asyncpg.connect(DB_URL)
-        msg_id = str(uuid4())
-        await conn.execute(
-            "INSERT INTO system_tasks (message_id, payload, status, workspace_id) VALUES ($1, $2, 'USER_INPUT', 1)",
-            msg_id, task.model_dump_json()
-        )
-        await conn.close()
-        return {"status": "accepted", "message_id": msg_id}
+        async with request.app.state.pool.acquire() as conn:
+            msg_id = str(uuid4())
+            await conn.execute(
+                "INSERT INTO system_tasks (message_id, payload, status, workspace_id) VALUES ($1, $2, 'USER_INPUT', 1)",
+                msg_id, task.model_dump_json()
+            )
+            return {"status": "accepted", "message_id": msg_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/workspaces/{workspace_id}/history")
-async def get_workspace_history(workspace_id: int):
+async def get_workspace_history(workspace_id: int, request: Request):
     """Fetch all tasks for a given workspace to restore UI state."""
     try:
-        conn = await asyncpg.connect(DB_URL)
-        rows = await conn.fetch(
-            "SELECT payload, status, created_at FROM system_tasks WHERE workspace_id = $1 ORDER BY created_at ASC",
-            workspace_id
-        )
-        await conn.close()
+        async with request.app.state.pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT payload, status, created_at FROM system_tasks WHERE workspace_id = $1 ORDER BY created_at ASC",
+                workspace_id
+            )
         
         history = []
         for r in rows:
@@ -70,20 +76,19 @@ async def get_workspace_history(workspace_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/db/query")
-async def db_query(table: str = "system_tasks", search: str = ""):
+async def db_query(request: Request, table: str = "system_tasks", search: str = ""):
     """Read-only DB query for the WebUI Database Tab."""
     allowed_tables = ["system_tasks", "system_notifications"]
     if table not in allowed_tables:
         raise HTTPException(status_code=400, detail="Invalid table")
     try:
-        conn = await asyncpg.connect(DB_URL)
-        if search:
-            query = f"SELECT * FROM {table} WHERE payload ILIKE $1 ORDER BY created_at DESC LIMIT 50"
-            rows = await conn.fetch(query, f"%{search}%")
-        else:
-            query = f"SELECT * FROM {table} ORDER BY created_at DESC LIMIT 50"
-            rows = await conn.fetch(query)
-        await conn.close()
+        async with request.app.state.pool.acquire() as conn:
+            if search:
+                query = f"SELECT * FROM {table} WHERE payload ILIKE $1 ORDER BY created_at DESC LIMIT 50"
+                rows = await conn.fetch(query, f"%{search}%")
+            else:
+                query = f"SELECT * FROM {table} ORDER BY created_at DESC LIMIT 50"
+                rows = await conn.fetch(query)
         
         result = [dict(row) for row in rows]
         # Convert datetime to string for json serialization
