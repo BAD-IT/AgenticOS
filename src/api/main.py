@@ -5,8 +5,10 @@ from fastapi.staticfiles import StaticFiles
 import asyncpg
 from src.core.models import TaskObject
 from src.core.config import settings
+from src.core.logging_config import api_logger
 from src.api.websockets import router as ws_router
 
+api_logger.info("Initializing Agentic OS FastAPI Orchestrator")
 app = FastAPI(title="Agentic OS")
 app.include_router(ws_router)
 

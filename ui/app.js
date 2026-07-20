@@ -457,7 +457,17 @@ let logSocket;
 const connectLogSocket = () => {
     const logFeed = document.getElementById('log-feed');
     if (!logFeed) return;
-    logSocket = new WebSocket(`ws://${location.host}/api/v1/stream/logs`);
+    
+    // Close existing socket if reconnecting
+    if (logSocket) logSocket.close();
+    
+    // Clear the feed
+    logFeed.innerHTML = "";
+    
+    const logSelect = document.getElementById('log-file-select');
+    const logName = logSelect ? logSelect.value : 'api';
+    
+    logSocket = new WebSocket(`ws://${location.host}/api/v1/stream/logs/${logName}`);
     logSocket.onmessage = (e) => {
         const line = e.data;
         const searchVal = document.getElementById('log-search')?.value.toLowerCase();
@@ -472,6 +482,12 @@ const connectLogSocket = () => {
             logFeed.scrollTop = logFeed.scrollHeight;
         }
     };
-    logSocket.onclose = () => setTimeout(connectLogSocket, 5000);
+    logSocket.onclose = () => {
+        // Only auto-reconnect if it wasn't a deliberate change
+        setTimeout(connectLogSocket, 5000);
+    };
 };
+
+document.getElementById('log-file-select')?.addEventListener('change', connectLogSocket);
+
 connectLogSocket();

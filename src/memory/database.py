@@ -1,8 +1,6 @@
 import asyncpg
-import logging
 from src.core.models import QueueName
-
-logger = logging.getLogger(__name__)
+from src.core.logging_config import database_logger as logger
 
 async def get_db_pool(dsn: str) -> asyncpg.Pool:
     """
