@@ -34,22 +34,44 @@ llm = ChatOllama(model=settings.LLM_MODEL).bind_tools(list(TOOLS_MAP.values()))
 
 from src.core.logging_config import orchestrator_logger as logger
 
-def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
-    logger.info(f"Orchestrator node_worker_thinking triggered for task: {state.current_task.intent if state.current_task else 'Unknown'}")
-    # Proactive Clarification Check (Anti-Hallucination)
-    if state.current_task and not state.current_task.parameters:
-        state.current_task.status = TaskStatus.REVIEW
+async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
+    current_task = state.get("current_task")
+    messages = state.get("messages", [])
+    
+    logger.info(f"Orchestrator node_worker_thinking triggered for task: {current_task.intent if current_task else 'Unknown'}")
+    
+    if current_task and not current_task.parameters:
+        current_task.status = TaskStatus.REVIEW
         return {
-            "current_task": state.current_task,
+            "current_task": current_task,
             "messages": [SystemMessage(content="Task halted: REVIEW needed. Parameters missing.")]
         }
     
+    # Retrieval Augmented Generation (RAG) for Skills
+    skill_context = ""
+    if current_task:
+        try:
+            from src.maintenance.idle_daemon import get_embedding
+            emb = get_embedding(current_task.intent)
+            if emb and len(emb) == 768:
+                # Format as pgvector string
+                emb_str = "[" + ",".join(str(x) for x in emb) + "]"
+                conn = await asyncpg.connect(DB_URL)
+                rows = await conn.fetch(
+                    "SELECT skill_abstraction FROM agent_skills ORDER BY embedding <-> $1 LIMIT 1",
+                    emb_str
+                )
+                await conn.close()
+                if rows:
+                    skill_context = f"\n<RELEVANT_PAST_EXPERIENCE>\n{rows[0]['skill_abstraction']}\n</RELEVANT_PAST_EXPERIENCE>"
+        except Exception as e:
+            logger.error(f"RAG Skill Retrieval Error: {e}")
+
     # Real LLM generation
-    sys_msg = SystemMessage(content="You are Agentic OS, executing tasks in a secure sandbox.\n<SYSTEM_PROMPT> When modifying files larger than 50 lines, you MUST use the `patch_file` tool instead of `write_file`.</SYSTEM_PROMPT>")
+    sys_msg = SystemMessage(content=f"You are Agentic OS, executing tasks in a secure sandbox.\n<SYSTEM_PROMPT> When modifying files larger than 50 lines, you MUST use the `patch_file` tool instead of `write_file`.</SYSTEM_PROMPT>{skill_context}")
+    
     msgs = [sys_msg]
-    if state.current_task:
-        msgs.append(HumanMessage(content=state.current_task.intent))
-    msgs.extend(state.messages)
+    msgs.extend(messages)
     
     try:
         response = llm.invoke(msgs)
@@ -59,16 +81,20 @@ def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
 
 def node_tool_execution(state: GraphState) -> Dict[str, Any]:
     # Level 1 Protection: The Tool-Scanner
-    last_msg = state.messages[-1] if state.messages else None
+    messages = state.get("messages", [])
+    failed_tool_hashes = state.get("failed_tool_hashes", [])
+    tool_error_count = state.get("tool_error_count", 0)
+    
+    last_msg = messages[-1] if messages else None
     
     if last_msg and getattr(last_msg, "tool_calls", None):
         tc = last_msg.tool_calls[0]
         t_hash = hash_tool_call(tc["name"], tc["args"])
         
-        if t_hash in state.failed_tool_hashes:
+        if t_hash in failed_tool_hashes:
             # Block the repeated execution immediately
             return {
-                "tool_error_count": state.tool_error_count + 1,
+                "tool_error_count": tool_error_count + 1,
                 "messages": [ToolMessage(
                     content="System block: This exact tool call already failed. Generate a completely new approach.",
                     tool_call_id=tc["id"],
@@ -94,28 +120,28 @@ def node_tool_execution(state: GraphState) -> Dict[str, Any]:
             except Exception as e:
                 return {
                     "failed_tool_hashes": [t_hash], 
-                    "tool_error_count": state.tool_error_count + 1,
+                    "tool_error_count": tool_error_count + 1,
                     "messages": [ToolMessage(
                         content=f"Tool failed: {e}",
                         tool_call_id=tc["id"],
                         name=tc["name"]
                     )]
                 }
-    return {}
+    return {"tool_error_count": tool_error_count}
 
 def node_review(state: GraphState) -> Dict[str, Any]:
     # Level 2 Protection: The Constitution Node (Overseer)
-    if state.tool_error_count >= 3:
-        return {
-            "messages": [SystemMessage(content="<SYSTEM_OVERRIDE> Stop using the failing approach. Try browser automation instead.")]
-        }
-    return {}
+    return {
+        "messages": [SystemMessage(content="<SYSTEM_OVERRIDE> Stop using the failing approach. Try browser automation instead.")]
+    }
 
 async def node_result(state: GraphState) -> Dict[str, Any]:
     """Experience Consolidation: Save learned abstractions to pgvector."""
-    if state.current_task:
-        intent = state.current_task.intent
-        history = "\n".join([m.content for m in state.messages if isinstance(m.content, str)])
+    current_task = state.get("current_task")
+    messages = state.get("messages", [])
+    if current_task:
+        intent = current_task.intent
+        history = "\n".join([m.content for m in messages if isinstance(m.content, str)])
         
         skill = generate_skill_from_task(intent, history)
         
@@ -132,24 +158,28 @@ async def node_result(state: GraphState) -> Dict[str, Any]:
         return {
             "messages": [SystemMessage(content="Task completed and experience saved to pgvector.")]
         }
-    return {}
+    return {"tool_error_count": state.get("tool_error_count", 0)}
 
 def route_from_thinking(state: GraphState) -> str:
-    if state.current_task and state.current_task.status == TaskStatus.REVIEW:
+    if state["current_task"] and state["current_task"].status == TaskStatus.REVIEW:
         return END
     
-    last_msg = state.messages[-1] if state.messages else None
+    last_msg = state["messages"][-1] if state["messages"] else None
     if last_msg and getattr(last_msg, "tool_calls", None):
         return "Node_Tool_Execution"
     
-    return "Node_Review"
+    tool_error_count = state.get("tool_error_count", 0)
+    if tool_error_count >= 3:
+        return "Node_Review"
+        
+    return "Node_Result"
 
 def route_from_tool(state: GraphState) -> str:
-    if state.tool_error_count >= 3:
+    if state["tool_error_count"] >= 3:
         return "Node_Review"
     return "Node_Worker_Thinking"
 
-def create_graph() -> StateGraph:
+def create_graph(checkpointer=None) -> StateGraph:
     workflow = StateGraph(GraphState)
     
     workflow.add_node("Node_Worker_Thinking", node_worker_thinking)
@@ -164,4 +194,4 @@ def create_graph() -> StateGraph:
     workflow.add_edge("Node_Review", "Node_Result")
     workflow.add_edge("Node_Result", END)
     
-    return workflow.compile()
+    return workflow.compile(checkpointer=checkpointer)
