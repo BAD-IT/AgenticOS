@@ -5,5 +5,9 @@ RUN apt-get update -qq && \
     apt-get install -y -qq g++ && \
     rm -rf /var/lib/apt/lists/*
 
-# Keep the container alive to accept docker exec commands
-CMD ["tail", "-f", "/dev/null"]
+# Setup work directories
+WORKDIR /app
+COPY src/tools/runner_daemon.py /app/runner_daemon.py
+
+# Keep the container alive by running the polling daemon
+CMD ["python", "/app/runner_daemon.py"]
