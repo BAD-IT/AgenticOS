@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS agent_skills (
     id SERIAL PRIMARY KEY,
     task_intent TEXT,
     skill_abstraction TEXT,
-    embedding vector(3)
+    embedding vector(768)
 );
 
 -- Triggers for Real-Time WebSockets
