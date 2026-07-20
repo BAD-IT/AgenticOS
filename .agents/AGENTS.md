@@ -13,7 +13,7 @@ Your mindset: KISS (Keep It Simple, Stupid). No bloatware. No unnecessary abstra
 
 ## 3. Workflow: Feature-Driven Development (FDD) & GitHub Issues
 We strictly follow an FDD workflow orchestrated via GitHub CLI (`gh`).
-*   **Rule 1:** NEVER write code without an active, assigned GitHub Issue.
+*   **Rule 1:** NEVER write code without an active, assigned GitHub Issue. ALWAYS write a design document in `docs/features/<feature_name>.md` before creating the issue.
 *   **Rule 2:** Before starting a session, run `gh issue list` to check current tasks.
 *   **Rule 3:** To understand the scope of work, read the specific issue using `gh issue view <number>`.
 *   **Rule 4:** Create a new feature branch for every issue: `git checkout -b feat/issue-<number>-<short-desc>`.

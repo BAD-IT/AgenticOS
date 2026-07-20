@@ -20,10 +20,24 @@
     </div>
     <div id="flex-container">
         <div id="left-panel" class="panel glass" style="width: 25%;">
-            <div class="panel-header">Workspace</div>
-            <div id="context-content">
-                <p>System Context Loaded.</p>
-                <p>Workspace initialized securely.</p>
+            <div class="panel-header">System State</div>
+            <div id="system-state-content" style="padding: 15px; font-size: 13px;">
+                <div style="margin-bottom: 15px;">
+                    <div style="color:#94a3b8; margin-bottom: 5px;">Active Goal</div>
+                    <div id="active-goal" style="color:#e2e8f0;">Awaiting instructions...</div>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <div style="color:#94a3b8; margin-bottom: 5px;">System Queues</div>
+                    <ul id="queue-status" style="list-style:none; padding:0; margin:0; color:#e2e8f0;">
+                        <li>User_Input_Queue: <span id="q-user">0</span></li>
+                        <li>LLM_Queue: <span id="q-llm">0</span></li>
+                        <li>Tool_Queue: <span id="q-tool">0</span></li>
+                    </ul>
+                </div>
+                <div>
+                    <div style="color:#94a3b8; margin-bottom: 5px;">Health Metrics</div>
+                    <div id="health-metrics" style="color:#10b981;">● Database Connected</div>
+                </div>
             </div>
         </div>
         
@@ -33,6 +47,8 @@
             <div class="panel-header tabs">
                 <button class="tab-btn active" data-target="chat-tab">Chat</button>
                 <button class="tab-btn" data-target="telemetry-tab">Telemetry</button>
+                <button class="tab-btn" data-target="database-tab">Database</button>
+                <button class="tab-btn" data-target="logs-tab">Logfiles</button>
             </div>
             
             <div id="chat-tab" class="tab-content" style="display: flex;">
@@ -55,12 +71,50 @@
                     </div>
                 <div id="terminal-feed"></div>
             </div>
+
+            <!-- Database Tab -->
+            <div id="database-tab" class="tab-content" style="display: none; flex-direction: column;">
+                <div class="telemetry-header" style="display:flex; gap:10px;">
+                    <select id="db-table-select" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:5px; border-radius:4px;">
+                        <option value="system_tasks">system_tasks</option>
+                        <option value="system_notifications">system_notifications</option>
+                    </select>
+                    <input type="text" id="db-search" placeholder="Search database..." style="flex-grow:1; background:#1e293b; color:#fff; border:1px solid #334155; padding:5px; border-radius:4px;">
+                    <button id="db-refresh-btn" style="background:#3b82f6; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Refresh</button>
+                </div>
+                <div id="db-table-container" style="flex-grow:1; overflow:auto; margin-top:10px;">
+                    <table id="db-table" style="width:100%; border-collapse:collapse; font-size:13px; color:#cbd5e1;">
+                        <thead><tr style="border-bottom:1px solid #334155;"><th>Data</th></tr></thead>
+                        <tbody><tr><td>No data loaded.</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Logfiles Tab -->
+            <div id="logs-tab" class="tab-content" style="display: none; flex-direction: column;">
+                <div class="telemetry-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size:12px; color:#94a3b8;" id="log-meta">Monitoring live server logs</div>
+                    <input type="text" id="log-search" placeholder="Filter logs..." style="background:#1e293b; color:#fff; border:1px solid #334155; padding:5px; border-radius:4px;">
+                </div>
+                <div id="log-feed" style="flex-grow:1; overflow-y:auto; padding:10px; font-family:var(--font-mono); font-size:12px; color:#cbd5e1; background:rgba(0,0,0,0.4); border-radius:6px; margin-top:10px; white-space:pre-wrap;">
+                </div>
+            </div>
         </div>
         
         <div class="resizer" id="resizer-right"></div>
         
         <div id="right-panel" class="panel glass" style="width: 25%;">
-            <div class="panel-header">Preview & Artifacts</div>
+            <div class="panel-header">Workspace Explorer</div>
+            <div id="file-explorer" style="padding: 15px; font-size: 13px; color: #cbd5e1; overflow-y: auto;">
+                <div style="margin-bottom: 10px; color:#94a3b8;">/workspace/inbox</div>
+                <ul id="inbox-tree" style="list-style:none; padding-left:15px; margin:0 0 15px 0;">
+                    <li style="color:#64748b; font-style:italic;">Loading...</li>
+                </ul>
+                <div style="margin-bottom: 10px; color:#94a3b8;">/workspace/outbox</div>
+                <ul id="outbox-tree" style="list-style:none; padding-left:15px; margin:0 0 15px 0;">
+                    <li style="color:#64748b; font-style:italic;">Loading...</li>
+                </ul>
+            </div>
             <div id="preview-content">
                 <iframe id="canvas-iframe" src="" style="display:none;"></iframe>
             </div>

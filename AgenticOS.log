@@ -1,0 +1,502 @@
+INFO:     Will watch for changes in these directories: ['/Users/smith/DEV/AgenticOS']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [11539] using StatReload
+INFO:     Started server process [11541]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:63262 - "GET /ui/index.html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63262 - "GET /ui/style.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63264 - "GET /ui/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63266 - "WebSocket /api/v1/stream/notifications" [accepted]
+INFO:     connection open
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/protocols/websockets/websockets_sansio_impl.py", line 350, in run_asgi
+    result = await self.app(self.scope, self.receive, self.send)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1766, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2740, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1788, in _handle_selected
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 350, in handle
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 177, in app
+    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 174, in app
+    await func(session)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 781, in app
+    await dependant.call(**solved_result.values)
+  File "/Users/smith/DEV/AgenticOS/src/api/websockets.py", line 24, in stream_notifications
+    conn = await asyncpg.connect(DB_URL)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connection.py", line 2443, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<22 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1249, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+    ...<2 lines>...
+    )
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1218, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1054, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1099, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 969, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        host, port)
+        ^^^^^^^^^^^
+  File "/Users/smith/.local/share/uv/python/cpython-3.13.13-macos-aarch64-none/lib/python3.13/asyncio/base_events.py", line 1179, in create_connection
+    raise OSError('Multiple exceptions: {}'.format(
+        ', '.join(str(exc) for exc in exceptions)))
+OSError: Multiple exceptions: [Errno 61] Connect call failed ('::1', 5432, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 5432)
+INFO:     127.0.0.1:63264 - "GET /api/v1/workspaces/1/history HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63262 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63268 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63276 - "WebSocket /api/v1/stream/chat" [accepted]
+INFO:     connection open
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/protocols/websockets/websockets_sansio_impl.py", line 350, in run_asgi
+    result = await self.app(self.scope, self.receive, self.send)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1766, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2740, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1788, in _handle_selected
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 350, in handle
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 177, in app
+    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 174, in app
+    await func(session)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 781, in app
+    await dependant.call(**solved_result.values)
+  File "/Users/smith/DEV/AgenticOS/src/api/websockets.py", line 50, in stream_chat
+    conn = await asyncpg.connect(DB_URL)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connection.py", line 2443, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<22 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1249, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+    ...<2 lines>...
+    )
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1218, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1054, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1099, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 969, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        host, port)
+        ^^^^^^^^^^^
+  File "/Users/smith/.local/share/uv/python/cpython-3.13.13-macos-aarch64-none/lib/python3.13/asyncio/base_events.py", line 1179, in create_connection
+    raise OSError('Multiple exceptions: {}'.format(
+        ', '.join(str(exc) for exc in exceptions)))
+OSError: Multiple exceptions: [Errno 61] Connect call failed ('::1', 5432, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 5432)
+INFO:     127.0.0.1:63280 - "WebSocket /api/v1/stream/logs" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:63283 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63288 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63287 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63293 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63295 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63297 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63300 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63302 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63304 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63307 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63309 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63311 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63313 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63315 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63317 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63319 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63321 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63323 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63333 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63335 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63339 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63341 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63343 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63345 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63348 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63350 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63352 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63354 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63357 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63359 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63361 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63363 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63365 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63367 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63369 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63371 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63373 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63379 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63386 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63395 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63397 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63399 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63402 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63404 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63406 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63409 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63411 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63413 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63424 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63426 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63428 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63430 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63432 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63434 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63436 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63438 - "GET /ui/index.html HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63438 - "GET /ui/style.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63440 - "GET /ui/app.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63442 - "WebSocket /api/v1/stream/notifications" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:63440 - "GET /api/v1/workspaces/1/history HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/protocols/websockets/websockets_sansio_impl.py", line 350, in run_asgi
+    result = await self.app(self.scope, self.receive, self.send)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1766, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2740, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1788, in _handle_selected
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 350, in handle
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 177, in app
+    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 174, in app
+    await func(session)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 781, in app
+    await dependant.call(**solved_result.values)
+  File "/Users/smith/DEV/AgenticOS/src/api/websockets.py", line 24, in stream_notifications
+    conn = await asyncpg.connect(DB_URL)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connection.py", line 2443, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<22 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1249, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+    ...<2 lines>...
+    )
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1218, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1054, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1099, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 969, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        host, port)
+        ^^^^^^^^^^^
+  File "/Users/smith/.local/share/uv/python/cpython-3.13.13-macos-aarch64-none/lib/python3.13/asyncio/base_events.py", line 1179, in create_connection
+    raise OSError('Multiple exceptions: {}'.format(
+        ', '.join(str(exc) for exc in exceptions)))
+OSError: Multiple exceptions: [Errno 61] Connect call failed ('::1', 5432, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 5432)
+INFO:     127.0.0.1:63438 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63444 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63452 - "WebSocket /api/v1/stream/chat" [accepted]
+INFO:     connection open
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/protocols/websockets/websockets_sansio_impl.py", line 350, in run_asgi
+    result = await self.app(self.scope, self.receive, self.send)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1766, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2740, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1788, in _handle_selected
+    await route.handle(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/routing.py", line 350, in handle
+    await self.app(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 177, in app
+    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 174, in app
+    await func(session)
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 781, in app
+    await dependant.call(**solved_result.values)
+  File "/Users/smith/DEV/AgenticOS/src/api/websockets.py", line 50, in stream_chat
+    conn = await asyncpg.connect(DB_URL)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connection.py", line 2443, in connect
+    return await connect_utils._connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<22 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1249, in _connect
+    raise last_error or exceptions.TargetServerAttributeNotMatched(
+    ...<2 lines>...
+    )
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1218, in _connect
+    conn = await _connect_addr(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1054, in _connect_addr
+    return await __connect_addr(params, True, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 1099, in __connect_addr
+    tr, pr = await connector
+             ^^^^^^^^^^^^^^^
+  File "/Users/smith/DEV/AgenticOS/.venv/lib/python3.13/site-packages/asyncpg/connect_utils.py", line 969, in _create_ssl_connection
+    tr, pr = await loop.create_connection(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        host, port)
+        ^^^^^^^^^^^
+  File "/Users/smith/.local/share/uv/python/cpython-3.13.13-macos-aarch64-none/lib/python3.13/asyncio/base_events.py", line 1179, in create_connection
+    raise OSError('Multiple exceptions: {}'.format(
+        ', '.join(str(exc) for exc in exceptions)))
+OSError: Multiple exceptions: [Errno 61] Connect call failed ('::1', 5432, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 5432)
+INFO:     127.0.0.1:63456 - "WebSocket /api/v1/stream/logs" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:63458 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63460 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63464 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63469 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63468 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63476 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63475 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63482 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63481 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63488 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63487 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63494 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63493 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63499 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63500 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63506 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63505 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63512 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63511 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63517 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63518 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63524 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63523 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63530 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63529 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63536 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63535 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63542 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63541 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63548 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63547 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63552 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63554 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63560 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63559 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63566 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63565 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63572 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63571 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63578 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63577 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63594 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63593 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63600 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63599 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63606 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63605 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63612 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63610 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63617 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63618 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63624 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63623 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63630 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63629 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63635 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63636 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63642 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63641 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63648 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63647 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63653 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63654 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63660 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63659 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63666 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63665 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63672 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63671 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63678 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63677 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63684 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63683 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63690 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63689 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63696 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63697 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63703 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63702 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63710 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63709 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63721 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63720 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63728 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63727 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63733 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63734 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63739 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63740 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63745 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63746 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63752 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63751 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63758 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63757 - "GET /api/v1/db/query?table=system_tasks&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63762 - "GET /api/v1/db/query?table=system_notifications&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63762 - "GET /api/v1/db/query?table=system_notifications&search= HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:63766 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63770 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63772 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63787 - "GET /api/v1/workspace/files HTTP/1.1" 200 OK

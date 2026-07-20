@@ -63,3 +63,35 @@ async def stream_chat(websocket: WebSocket):
         if conn:
             await conn.remove_listener("system_tasks_channel", handle_chat_update)
             await conn.close()
+
+@router.websocket("/api/v1/stream/logs")
+async def stream_logs(websocket: WebSocket):
+    """Stream backend logfiles via WebSocket."""
+    await websocket.accept()
+    import os
+    import asyncio
+    log_file = "AgenticOS.log"
+    
+    # Create an empty log file if it doesn't exist
+    if not os.path.exists(log_file):
+        with open(log_file, 'w') as f:
+            f.write("Log initialized.\n")
+            
+    try:
+        with open(log_file, "r") as f:
+            # Send the last 20 lines on connection
+            lines = f.readlines()
+            for line in lines[-20:]:
+                await websocket.send_text(line)
+            
+            # Tail the file
+            while True:
+                line = f.readline()
+                if line:
+                    await websocket.send_text(line)
+                else:
+                    await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
