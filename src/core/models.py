@@ -18,9 +18,10 @@ class TaskObject(BaseModel):
     status: TaskStatus = Field(default=TaskStatus.PENDING, description="Current status of the task")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="Parsed parameters required for execution")
 
-class GraphState(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    tool_error_count: int = Field(default=0, description="Counter for consecutive tool errors to trigger circuit breaker")
-    failed_tool_hashes: List[str] = Field(default_factory=list, description="List of hashes for failed tool executions to prevent looping")
-    current_task: Optional[TaskObject] = Field(default=None, description="The task currently being processed")
-    messages: Annotated[List[BaseMessage], add_messages] = Field(default_factory=list, description="Conversation history and tool calls")
+from typing import TypedDict
+
+class GraphState(TypedDict):
+    current_task: Optional[TaskObject]
+    tool_error_count: int
+    failed_tool_hashes: List[str]
+    messages: Annotated[List[BaseMessage], add_messages]
