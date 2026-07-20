@@ -24,3 +24,28 @@ CREATE TABLE IF NOT EXISTS agent_skills (
     skill_abstraction TEXT,
     embedding vector(3)
 );
+
+-- Triggers for Real-Time WebSockets
+CREATE OR REPLACE FUNCTION notify_system_tasks() RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify('system_tasks_channel', row_to_json(NEW)::text);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS system_tasks_notify_trigger ON system_tasks;
+CREATE TRIGGER system_tasks_notify_trigger
+AFTER INSERT OR UPDATE ON system_tasks
+FOR EACH ROW EXECUTE FUNCTION notify_system_tasks();
+
+CREATE OR REPLACE FUNCTION notify_system_notifications() RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify('system_notifications_channel', row_to_json(NEW)::text);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS system_notifications_notify_trigger ON system_notifications;
+CREATE TRIGGER system_notifications_notify_trigger
+AFTER INSERT ON system_notifications
+FOR EACH ROW EXECUTE FUNCTION notify_system_notifications();

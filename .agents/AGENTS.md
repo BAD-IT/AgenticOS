@@ -38,3 +38,11 @@ DO NOT use strict Test-Driven Development (TDD).
 1. Treat Pydantic schemas as your primary validation layer. Do not write pytest functions to check type enforcement.
 2. Write the core logic (Nodes, Edges, Queues) first.
 3. Write pytest ONLY for logic routing (e.g., testing LangGraph conditional edges) and state transitions. Keep tests lean, integration-focused, and write them after the core logic is stable.
+
+## Rule 8: Configuration Management
+1. NEVER hardcode configuration values (e.g., database URLs, model names, directory paths, ports) directly in the source code.
+2. All global settings MUST be centrally managed in `src/core/config.py` and loaded from the `.env` file via `os.getenv` or `python-dotenv`.
+
+## Rule 9: File Size Limits
+1. NEVER write or expand a Python file such that it exceeds 500 lines of code.
+2. If a file is approaching 500 lines, you MUST refactor it by extracting logic into modular, domain-specific files (e.g., splitting a monolithic `workflow.py` into separate `nodes/`, `edges/`, and `state/` modules).

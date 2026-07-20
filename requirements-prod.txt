@@ -5,3 +5,4 @@ langgraph
 fastapi
 uvicorn
 litellm
+python-dotenv

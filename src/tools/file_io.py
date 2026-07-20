@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from src.core.config import settings
 
 # Base paths (resolving to ensure secure checking)
-WORKSPACE_INBOX = Path(os.getenv("INBOX_DIR", "workspace/inbox")).resolve()
-WORKSPACE_OUTBOX = Path(os.getenv("OUTBOX_DIR", "workspace/outbox")).resolve()
+WORKSPACE_INBOX = Path(settings.INBOX_DIR).resolve()
+WORKSPACE_OUTBOX = Path(settings.OUTBOX_DIR).resolve()
 
 def _is_safe_path(requested_path: Path, base_paths: list[Path]) -> bool:
     resolved_path = requested_path.resolve()

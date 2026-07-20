@@ -3,13 +3,13 @@ const chatHistory = document.getElementById('chat-history');
 const terminalFeed = document.getElementById('terminal-feed');
 const workspacesContainer = document.getElementById('workspaces');
 const addWorkspaceBtn = document.getElementById('add-workspace-btn');
-const canvasToggle = document.getElementById('canvas-toggle');
 const contextContent = document.getElementById('context-content');
 const canvasIframe = document.getElementById('canvas-iframe');
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
 
 let currentWorkspace = 1;
 let totalWorkspaces = 1;
-let canvasMode = false;
 
 // Resizer logic
 let isDraggingLeft = false;
@@ -100,12 +100,31 @@ cliInput.addEventListener('keydown', (e) => {
         appendChat(val, 'user');
         cliInput.value = '';
         if (!handleQuickCommand(val)) {
-            // Send to WebSocket
-            if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-                chatSocket.send(val);
-            } else {
-                appendChat('WebSocket not connected.', 'system');
+            // Show loading indicator
+            const loader = document.getElementById('chat-loading-indicator');
+            if (loader) {
+                loader.style.display = 'flex';
+                loader.querySelector('.loader-text').innerText = 'Agent is thinking...';
             }
+            
+            fetch('/api/v1/tasks/submit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    task_id: crypto.randomUUID ? crypto.randomUUID() : "task-" + Date.now(),
+                    intent: val,
+                    status: "PENDING",
+                    parameters: {}
+                })
+            }).then(async res => {
+                if (!res.ok) {
+                    const err = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${err}`);
+                }
+            }).catch(err => {
+                appendChat('Error submitting task: ' + err.message, 'system');
+                if (loader) loader.style.display = 'none';
+            });
         }
     }
 });
@@ -135,9 +154,8 @@ const switchWorkspace = (wsNum) => {
     document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
     document.querySelector(`[data-ws="${wsNum}"]`).classList.add('active');
     currentWorkspace = wsNum;
-    document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum} <button id="canvas-toggle">[Toggle Canvas]</button>`;
+    document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum}`;
     loadWorkspaceHistory(wsNum);
-    bindCanvasToggle();
 };
 
 // Bind clicks to existing workspace tabs
@@ -172,25 +190,28 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-const bindCanvasToggle = () => {
-    const toggleBtn = document.getElementById('canvas-toggle');
-    if (!toggleBtn) return;
-    toggleBtn.addEventListener('click', () => {
-        canvasMode = !canvasMode;
-        if (canvasMode) {
-            contextContent.style.display = 'none';
-            canvasIframe.style.display = 'block';
-            canvasIframe.src = "http://localhost:8000/ui/index.html"; // Just a mock target to test iframe
-            appendChat('Toggled Canvas Mode ON', 'system');
-        } else {
-            contextContent.style.display = 'block';
-            canvasIframe.style.display = 'none';
-            canvasIframe.src = "";
-            appendChat('Toggled Canvas Mode OFF', 'system');
+// Tab Switching Logic
+tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Remove active class from all buttons and contents
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.style.display = 'none');
+        
+        // Add active class to clicked button
+        btn.classList.add('active');
+        
+        // Show corresponding content
+        const targetId = btn.getAttribute('data-target');
+        const targetContent = document.getElementById(targetId);
+        if (targetContent) {
+            targetContent.style.display = 'flex';
         }
+        
+        // Scroll to bottom if switching back to chat or terminal
+        if (targetId === 'chat-tab') chatHistory.scrollTop = chatHistory.scrollHeight;
+        if (targetId === 'telemetry-tab') terminalFeed.scrollTop = terminalFeed.scrollHeight;
     });
-};
-bindCanvasToggle();
+});
 
 // WebSockets
 let notifSocket, chatSocket;
@@ -198,17 +219,44 @@ let notifSocket, chatSocket;
 const connectSockets = () => {
     notifSocket = new WebSocket(`ws://${location.host}/api/v1/stream/notifications`);
     notifSocket.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        appendLog(data.level || 'info', data.message);
+        try {
+            const row = JSON.parse(e.data);
+            if (row && row.payload) {
+                const p = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
+                if (p.icon && p.category) {
+                    appendTelemetry(p.icon, p.category, p.message || '', p.type || 'info', row);
+                    // Update loading indicator text if it's visible
+                    const loader = document.getElementById('chat-loading-indicator');
+                    if (loader && loader.style.display !== 'none') {
+                        loader.querySelector('.loader-text').innerText = `${p.icon} ${p.category}: ${p.message || ''}`;
+                    }
+                } else {
+                    appendLog(p.level || 'info', p.message || JSON.stringify(p));
+                }
+            }
+        } catch(err) {
+            console.error(err);
+        }
     };
 
     chatSocket = new WebSocket(`ws://${location.host}/api/v1/stream/chat`);
     chatSocket.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.status === 'REQUIRES_CLARIFICATION') {
-            appendChat(data.message, 'system');
-        } else {
-            appendChat(data.action || data.message, 'agent');
+        try {
+            const row = JSON.parse(e.data);
+            if (row && row.payload) {
+                const p = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
+                if (p.status === 'REQUIRES_CLARIFICATION') {
+                    appendChat(p.message || 'Clarification required.', 'system');
+                } else if (p.action || p.message) {
+                    appendChat(p.action || p.message, 'agent');
+                }
+                
+                // Hide loading indicator when we get a response
+                const loader = document.getElementById('chat-loading-indicator');
+                if (loader) loader.style.display = 'none';
+            }
+        } catch(err) {
+            console.error(err);
         }
     };
 };
@@ -217,10 +265,91 @@ connectSockets();
 
 // Always focus input
 document.addEventListener('click', (e) => {
-    // Don't focus if they clicked a button or resizer
     if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('resizer') && !e.target.classList.contains('workspace')) {
         cliInput.focus();
     }
 });
 cliInput.focus();
 loadWorkspaceHistory(currentWorkspace);
+
+// --- Modal Logic ---
+const payloadModal = document.getElementById('payload-modal');
+const modalTitle = document.getElementById('modal-title');
+const modalBodyContent = document.getElementById('modal-body-content');
+const closeModalBtn = document.getElementById('close-modal');
+
+if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+        payloadModal.style.display = 'none';
+    });
+}
+
+window.addEventListener('click', (e) => {
+    if (e.target === payloadModal) {
+        payloadModal.style.display = 'none';
+    }
+});
+
+// Settings Modal Logic
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const closeSettingsBtn = document.getElementById('close-settings-modal');
+const settingsBody = document.getElementById('settings-modal-body');
+
+if (settingsBtn && settingsModal) {
+    settingsBtn.addEventListener('click', async () => {
+        settingsModal.style.display = 'flex';
+        settingsBody.innerHTML = 'Loading configuration...';
+        try {
+            const res = await fetch('/api/v1/settings');
+            const data = await res.json();
+            
+            let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
+            for (const [key, val] of Object.entries(data)) {
+                html += `
+                    <div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:5px;">
+                        <span style="color:#94a3b8">${key}</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;">${val}</span>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            settingsBody.innerHTML = html;
+        } catch (e) {
+            settingsBody.innerHTML = `<span style="color:#ef4444">Error loading settings.</span>`;
+        }
+    });
+
+    closeSettingsBtn.addEventListener('click', () => {
+        settingsModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            settingsModal.style.display = 'none';
+        }
+    });
+}
+
+// --- TELEMETRY RENDERER ---
+const appendTelemetry = (icon, category, message, type = 'info', rawRow = null) => {
+    const div = document.createElement('div');
+    div.className = `telemetry-item ${type}`;
+    div.innerHTML = `<span class="icon">${icon}</span> <strong class="category">${category}:</strong> <span class="message">${message}</span>`;
+    
+    if (category.includes('File') || category.includes('DB') || category.includes('State')) {
+        div.style.cursor = 'pointer';
+        div.title = 'Click to view payload details';
+        div.addEventListener('click', () => {
+            if (payloadModal) {
+                modalTitle.innerText = `${icon} ${category}`;
+                const payloadData = rawRow ? JSON.stringify(rawRow, null, 2) : "{}";
+                modalBodyContent.innerHTML = `<strong>Target:</strong> ${message}\n\n<span style="color:#94a3b8">/* Live Payload Data */</span>\n${payloadData}`;
+                payloadModal.style.display = 'flex';
+            }
+        });
+    }
+    
+    terminalFeed.appendChild(div);
+    terminalFeed.scrollTop = terminalFeed.scrollHeight;
+};

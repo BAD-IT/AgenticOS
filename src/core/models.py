@@ -19,6 +19,11 @@ class QueueName(str, Enum):
     RESULT_OUTPUT = "Result_Output_Queue"
     NOTIFICATION = "Notification_Queue"
     ERROR = "Error_Queue"
+    # Added for 11-Queue Topology compliance
+    IO_WAIT = "I/O_Wait_Queue"
+    EMBEDDING = "Embedding_Queue"
+    TELEMETRY = "Telemetry_Queue"
+    IDLE = "Idle_Queue"
 
 class TaskObject(BaseModel):
     task_id: str = Field(..., description="Unique identifier for the task")
