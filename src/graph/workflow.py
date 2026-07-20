@@ -27,10 +27,10 @@ def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
     logger.info(f"Orchestrator node_worker_thinking triggered for task: {state.current_task.intent if state.current_task else 'Unknown'}")
     # Proactive Clarification Check (Anti-Hallucination)
     if state.current_task and not state.current_task.parameters:
-        state.current_task.status = TaskStatus.REQUIRES_CLARIFICATION
+        state.current_task.status = TaskStatus.REVIEW
         return {
             "current_task": state.current_task,
-            "messages": [SystemMessage(content="Task halted: REQUIRES_CLARIFICATION. Parameters missing.")]
+            "messages": [SystemMessage(content="Task halted: REVIEW needed. Parameters missing.")]
         }
     
     # Real LLM generation
@@ -100,7 +100,7 @@ async def node_result(state: GraphState) -> Dict[str, Any]:
     return {}
 
 def route_from_thinking(state: GraphState) -> str:
-    if state.current_task and state.current_task.status == TaskStatus.REQUIRES_CLARIFICATION:
+    if state.current_task and state.current_task.status == TaskStatus.REVIEW:
         return END
     
     last_msg = state.messages[-1] if state.messages else None
