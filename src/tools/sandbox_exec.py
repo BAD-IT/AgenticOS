@@ -1,7 +1,5 @@
 import subprocess
-import logging
-
-logger = logging.getLogger(__name__)
+from src.core.logging_config import sandbox_logger as logger
 
 def run_in_sandbox(command: str, timeout: int = 30) -> dict:
     """Executes a shell command inside the isolated agenticos_artifact_runner container."""
