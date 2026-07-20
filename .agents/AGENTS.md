@@ -46,3 +46,7 @@ DO NOT use strict Test-Driven Development (TDD).
 ## Rule 9: File Size Limits
 1. NEVER write or expand a Python file such that it exceeds 500 lines of code.
 2. If a file is approaching 500 lines, you MUST refactor it by extracting logic into modular, domain-specific files (e.g., splitting a monolithic `workflow.py` into separate `nodes/`, `edges/`, and `state/` modules).
+
+## Rule 10: Proactive Cleanup & Verification
+1. **Self-Verification**: After implementing any feature, you MUST autonomously test the functional logic and UI integration (using API calls, curl, or browser subagents) before concluding the task.
+2. **Remove Dead Code**: You MUST proactively identify and delete obsolete code, temporary mock data, and deprecated files left behind by your new implementation. Clean code is non-negotiable.
