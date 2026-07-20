@@ -75,6 +75,35 @@ async def get_workspace_history(workspace_id: int, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/v1/debug/traces/{workspace_id}")
+async def get_debug_traces(workspace_id: int, request: Request):
+    """Fetch chronological debug traces for a given workspace."""
+    try:
+        async with request.app.state.pool.acquire() as conn:
+            query = """
+                SELECT t.id, t.task_id, t.node_name, t.state_diff, t.created_at, st.payload
+                FROM system_debug_trace t
+                JOIN system_tasks st ON t.task_id = st.message_id
+                WHERE st.workspace_id = $1
+                ORDER BY t.created_at ASC
+            """
+            rows = await conn.fetch(query, workspace_id)
+            
+            traces = []
+            for r in rows:
+                traces.append({
+                    "id": r["id"],
+                    "task_id": r["task_id"],
+                    "node_name": r["node_name"],
+                    "state_diff": r["state_diff"],
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None
+                })
+            return {"traces": traces}
+    except Exception as e:
+        api_logger.error(f"Error fetching traces: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/v1/db/query")
 async def db_query(request: Request, table: str = "system_tasks", search: str = ""):
     """Read-only DB query for the WebUI Database Tab."""

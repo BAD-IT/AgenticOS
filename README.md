@@ -63,7 +63,7 @@ http://localhost:8000/ui/index.html
 *   **Workspaces**: Click the `+` button in the top bar to dynamically spawn new workspaces. Switch between them instantly by clicking their numbers or pressing `Alt+1` through `Alt+0`.
 *   **Resizers**: Click and drag the glowing borders between panels to adjust your layout width.
 *   **Quick Commands**: Type `/time`, `/clear`, `/session`, or `/stats` in the CLI input. Local JavaScript will instantly intercept these to provide system telemetry without querying the LLM backend.
-*   **Canvas Mode**: If the Agentic OS builds a web app artifact, click `[Toggle Canvas]` in the status bar to replace the left Context panel with a live interactive iframe of the generated code!
+
 *   **Greeting System**: Simply say `hi`, `hello`, or `sup` to see the native UI response. 
 
 ---
