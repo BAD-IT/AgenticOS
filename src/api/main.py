@@ -99,6 +99,17 @@ async def db_query(request: Request, table: str = "system_tasks", search: str = 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/v1/telemetry/queues")
+async def get_telemetry_queues(request: Request):
+    """Fetch raw counts for all system_tasks statuses."""
+    try:
+        async with request.app.state.pool.acquire() as conn:
+            rows = await conn.fetch("SELECT status, COUNT(*) FROM system_tasks GROUP BY status")
+        counts = {r['status']: r['count'] for r in rows}
+        return {"queues": counts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/v1/workspace/files")
 def get_workspace_files():
     """List files in the inbox and outbox for the Explorer."""

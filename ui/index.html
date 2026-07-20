@@ -55,14 +55,21 @@
                 <input type="text" id="cli-input" placeholder="Enter command or natural language..." autofocus autocomplete="off">
             </div>
 
-            <div id="telemetry-tab" class="tab-content" style="display: none;">
-                <div id="langgraph-state">[ <span class="state active">🧠 Orchestrator</span> ] -> [ <span class="state">⚙️ Working</span> ] -> [ <span class="state">🔍 Review</span> ]</div>
-                    <div class="telemetry-header">
-                        <div class="filter">
-                            <input type="checkbox" id="idle-tasks"> <label for="idle-tasks">Show Idle Tasks</label>
-                        </div>
+            <div id="telemetry-tab" class="tab-content" style="display: none; flex-direction: column;">
+                <div id="langgraph-state" style="margin-bottom: 10px;">[ <span class="state active">🧠 Orchestrator</span> ] -> [ <span class="state">⚙️ Working</span> ] -> [ <span class="state">🔍 Review</span> ]</div>
+                <div id="curated-queues" style="display: flex; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; font-size: 13px;">
+                    <div title="USER_INPUT, TASKS">📥 Ingestion: <span id="queue-ingest" style="color:#38bdf8; font-weight:bold;">0</span></div>
+                    <div title="PENDING, EMBEDDING, IO_WAIT">⚙️ Processing: <span id="queue-process" style="color:#fbbf24; font-weight:bold;">0</span></div>
+                    <div title="REVIEW">🛡️ Validation: <span id="queue-valid" style="color:#a78bfa; font-weight:bold;">0</span></div>
+                    <div title="RESULT_OUTPUT, NOTIFICATION">📤 Output: <span id="queue-out" style="color:#34d399; font-weight:bold;">0</span></div>
+                    <div id="queue-error-container" style="display:none;" title="ERROR">⚠️ Errors: <span id="queue-error" style="color:#f87171; font-weight:bold;">0</span></div>
+                </div>
+                <div class="telemetry-header">
+                    <div class="filter">
+                        <input type="checkbox" id="idle-tasks"> <label for="idle-tasks">Show Idle Tasks</label>
                     </div>
-                <div id="terminal-feed"></div>
+                </div>
+                <div id="terminal-feed" style="flex-grow: 1; overflow-y: auto;"></div>
             </div>
 
             <!-- Database Tab -->
