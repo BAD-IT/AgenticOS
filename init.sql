@@ -25,6 +25,14 @@ CREATE TABLE IF NOT EXISTS agent_skills (
     embedding vector(768)
 );
 
+CREATE TABLE IF NOT EXISTS system_debug_trace (
+    id SERIAL PRIMARY KEY,
+    task_id VARCHAR(255),
+    node_name VARCHAR(100),
+    state_diff JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Triggers for Real-Time WebSockets
 CREATE OR REPLACE FUNCTION notify_system_tasks() RETURNS TRIGGER AS $$
 BEGIN
@@ -49,3 +57,15 @@ DROP TRIGGER IF EXISTS system_notifications_notify_trigger ON system_notificatio
 CREATE TRIGGER system_notifications_notify_trigger
 AFTER INSERT ON system_notifications
 FOR EACH ROW EXECUTE FUNCTION notify_system_notifications();
+
+CREATE OR REPLACE FUNCTION notify_system_debug() RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify('system_debug_channel', row_to_json(NEW)::text);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS system_debug_notify_trigger ON system_debug_trace;
+CREATE TRIGGER system_debug_notify_trigger
+AFTER INSERT ON system_debug_trace
+FOR EACH ROW EXECUTE FUNCTION notify_system_debug();

@@ -20,25 +20,15 @@
     </div>
     <div id="flex-container">
         <div id="left-panel" class="panel glass" style="width: 25%;">
-            <div class="panel-header">System State</div>
-            <div id="system-state-content" style="padding: 15px; font-size: 13px;">
-                <div style="margin-bottom: 15px;">
-                    <div style="color:#94a3b8; margin-bottom: 5px;">Active Goal</div>
-                    <div id="active-goal" style="color:#e2e8f0;">Awaiting instructions...</div>
+            <div class="panel-header">Live Cognitive Trace</div>
+            <div id="system-state-content" style="padding: 15px; font-size: 13px; display: flex; flex-direction: column; height: calc(100% - 35px);">
+                <div style="margin-bottom: 15px; flex-shrink: 0;">
+                    <div style="color:#94a3b8; margin-bottom: 5px;">Active Task</div>
+                    <div id="active-goal" style="color:#e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Awaiting instructions...</div>
                 </div>
-                <div style="margin-bottom: 15px;">
-                    <div style="color:#94a3b8; margin-bottom: 5px;">System Pipelines</div>
-                    <ul id="queue-status" style="list-style:none; padding:0; margin:0; color:#e2e8f0;">
-                        <li style="margin-bottom:4px;">📥 Ingestion: <span id="pipe-ingest" style="color:#38bdf8;">0</span></li>
-                        <li style="margin-bottom:4px;">⚙️ Processing: <span id="pipe-process" style="color:#fbbf24;">0</span></li>
-                        <li style="margin-bottom:4px;">🛡️ Validation: <span id="pipe-valid" style="color:#a78bfa;">0</span></li>
-                        <li style="margin-bottom:4px;">📤 Output: <span id="pipe-out" style="color:#34d399;">0</span></li>
-                        <li id="pipe-error-row" style="margin-bottom:4px; display:none;">⚠️ Errors: <span id="pipe-error" style="color:#f87171;">0</span></li>
-                    </ul>
-                </div>
-                <div>
-                    <div style="color:#94a3b8; margin-bottom: 5px;">Health Metrics</div>
-                    <div id="health-metrics" style="color:#10b981;">● Database Connected</div>
+                <div style="color:#94a3b8; margin-bottom: 5px; flex-shrink: 0;">Thought Stream</div>
+                <div id="cognitive-trace-feed" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; font-family: var(--font-mono); font-size: 11px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="color: #64748b; font-style: italic;">No active trace...</div>
                 </div>
             </div>
         </div>
@@ -51,6 +41,7 @@
                 <button class="tab-btn" data-target="telemetry-tab">Telemetry</button>
                 <button class="tab-btn" data-target="database-tab">Database</button>
                 <button class="tab-btn" data-target="logs-tab">Logfiles</button>
+                <button class="tab-btn" data-target="debug-tab">Debug</button>
             </div>
             
             <div id="chat-tab" class="tab-content" style="display: flex;">
@@ -107,6 +98,17 @@
                     <input type="text" id="log-search" placeholder="Filter logs..." style="background:#1e293b; color:#fff; border:1px solid #334155; padding:5px; border-radius:4px; flex-grow:1; max-width: 300px;">
                 </div>
                 <div id="log-feed" style="flex-grow:1; overflow-y:auto; padding:10px; font-family:var(--font-mono); font-size:12px; color:#cbd5e1; background:rgba(0,0,0,0.4); border-radius:6px; margin-top:10px; white-space:pre-wrap;">
+                </div>
+            </div>
+
+            <!-- Debug Tab -->
+            <div id="debug-tab" class="tab-content" style="display: none; flex-direction: column;">
+                <div class="telemetry-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:#cbd5e1; font-weight:600;">System Debug Trace (LangGraph)</span>
+                    <button id="clear-debug-btn" style="background:#334155; border:none; color:white; padding:4px 10px; border-radius:4px; cursor:pointer;">Clear</button>
+                </div>
+                <div id="debug-feed" style="flex-grow:1; overflow-y:auto; padding:15px; font-family:var(--font-mono); font-size:12px; color:#a78bfa; background:rgba(15,23,42,0.8); border-radius:6px; margin-top:10px;">
+                    <div style="color: #64748b; font-style: italic;">Awaiting state events...</div>
                 </div>
             </div>
         </div>

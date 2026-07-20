@@ -491,3 +491,70 @@ const connectLogSocket = () => {
 document.getElementById('log-file-select')?.addEventListener('change', connectLogSocket);
 
 connectLogSocket();
+
+// --- DEBUG TRACE WEBSOCKET ---
+let debugSocket;
+const connectDebugSocket = () => {
+    const traceFeed = document.getElementById('cognitive-trace-feed');
+    const debugFeed = document.getElementById('debug-feed');
+    if (!debugFeed) return;
+    
+    debugSocket = new WebSocket(`ws://${location.host}/api/v1/stream/debug`);
+    debugSocket.onmessage = (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            const diff = data.state_diff ? JSON.parse(data.state_diff) : {};
+            
+            // 1. Update Left Panel (Live Pulse)
+            if (traceFeed) {
+                // Clear placeholder if first event
+                if (traceFeed.innerText.includes("No active trace")) {
+                    traceFeed.innerHTML = "";
+                }
+                const traceItem = document.createElement('div');
+                traceItem.style.marginBottom = "4px";
+                if (data.node_name === "Node_Worker_Thinking") {
+                    traceItem.innerHTML = `<span style="color:#fbbf24;">[THINKING]</span> Evaluating intent & tools...`;
+                } else if (data.node_name === "Node_Tool_Execution") {
+                    traceItem.innerHTML = `<span style="color:#38bdf8;">[TOOL EXEC]</span> Running tools...`;
+                } else if (data.node_name === "Node_Review") {
+                    traceItem.innerHTML = `<span style="color:#a78bfa;">[REVIEW]</span> Checking outputs...`;
+                } else if (data.node_name === "Node_Result") {
+                    traceItem.innerHTML = `<span style="color:#34d399;">[RESULT]</span> Task finalized.`;
+                } else {
+                    traceItem.innerHTML = `<span style="color:#cbd5e1;">[${data.node_name}]</span> State updated.`;
+                }
+                traceFeed.appendChild(traceItem);
+                traceFeed.scrollTop = traceFeed.scrollHeight;
+            }
+            
+            // 2. Update Right Panel (Debug Deep Dive)
+            // Clear placeholder if first event
+            if (debugFeed.innerText.includes("Awaiting state events")) {
+                debugFeed.innerHTML = "";
+            }
+            const debugItem = document.createElement('div');
+            debugItem.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+            debugItem.style.paddingBottom = "10px";
+            debugItem.style.marginBottom = "10px";
+            debugItem.innerHTML = `
+                <div style="color:#cbd5e1; font-weight:bold; margin-bottom:4px;">Node: ${data.node_name}</div>
+                <div style="color:#94a3b8; font-size:10px;">${data.created_at || new Date().toISOString()}</div>
+                <pre style="margin-top:5px; background:rgba(0,0,0,0.5); padding:8px; border-radius:4px; overflow-x:auto; color:#a78bfa;">${JSON.stringify(diff, null, 2)}</pre>
+            `;
+            debugFeed.prepend(debugItem);
+            
+        } catch(err) {
+            console.error("Error parsing debug trace", err);
+        }
+    };
+    debugSocket.onclose = () => {
+        setTimeout(connectDebugSocket, 5000);
+    };
+};
+connectDebugSocket();
+
+document.getElementById('clear-debug-btn')?.addEventListener('click', () => {
+    const df = document.getElementById('debug-feed');
+    if(df) df.innerHTML = '<div style="color: #64748b; font-style: italic;">Awaiting state events...</div>';
+});
