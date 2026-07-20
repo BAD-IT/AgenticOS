@@ -27,11 +27,13 @@
                     <div id="active-goal" style="color:#e2e8f0;">Awaiting instructions...</div>
                 </div>
                 <div style="margin-bottom: 15px;">
-                    <div style="color:#94a3b8; margin-bottom: 5px;">System Queues</div>
+                    <div style="color:#94a3b8; margin-bottom: 5px;">System Pipelines</div>
                     <ul id="queue-status" style="list-style:none; padding:0; margin:0; color:#e2e8f0;">
-                        <li>User_Input_Queue: <span id="q-user">0</span></li>
-                        <li>LLM_Queue: <span id="q-llm">0</span></li>
-                        <li>Tool_Queue: <span id="q-tool">0</span></li>
+                        <li style="margin-bottom:4px;">📥 Ingestion: <span id="pipe-ingest" style="color:#38bdf8;">0</span></li>
+                        <li style="margin-bottom:4px;">⚙️ Processing: <span id="pipe-process" style="color:#fbbf24;">0</span></li>
+                        <li style="margin-bottom:4px;">🛡️ Validation: <span id="pipe-valid" style="color:#a78bfa;">0</span></li>
+                        <li style="margin-bottom:4px;">📤 Output: <span id="pipe-out" style="color:#34d399;">0</span></li>
+                        <li id="pipe-error-row" style="margin-bottom:4px; display:none;">⚠️ Errors: <span id="pipe-error" style="color:#f87171;">0</span></li>
                     </ul>
                 </div>
                 <div>

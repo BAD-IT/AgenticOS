@@ -254,6 +254,31 @@ const connectSockets = () => {
                 // Hide loading indicator when we get a response
                 const loader = document.getElementById('chat-loading-indicator');
                 if (loader) loader.style.display = 'none';
+                
+                // If payload includes queue metrics, map them to our curated pipelines
+                if (p.queue_counts) {
+                    const ingest = (p.queue_counts.USER_INPUT || 0) + (p.queue_counts.TASKS || 0);
+                    const process = (p.queue_counts.PENDING || 0) + (p.queue_counts.EMBEDDING || 0) + (p.queue_counts.IO_WAIT || 0);
+                    const valid = (p.queue_counts.REVIEW || 0);
+                    const out = (p.queue_counts.RESULT_OUTPUT || 0) + (p.queue_counts.NOTIFICATION || 0);
+                    const err = (p.queue_counts.ERROR || 0);
+                    
+                    const elIngest = document.getElementById('pipe-ingest');
+                    const elProcess = document.getElementById('pipe-process');
+                    const elValid = document.getElementById('pipe-valid');
+                    const elOut = document.getElementById('pipe-out');
+                    const elErrorRow = document.getElementById('pipe-error-row');
+                    const elError = document.getElementById('pipe-error');
+                    
+                    if (elIngest) elIngest.innerText = ingest;
+                    if (elProcess) elProcess.innerText = process;
+                    if (elValid) elValid.innerText = valid;
+                    if (elOut) elOut.innerText = out;
+                    if (elError) {
+                        elError.innerText = err;
+                        elErrorRow.style.display = err > 0 ? 'block' : 'none';
+                    }
+                }
             }
         } catch(err) {
             console.error(err);
