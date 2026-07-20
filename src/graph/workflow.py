@@ -19,7 +19,18 @@ def hash_tool_call(tool_name: str, parameters: Dict[str, Any]) -> str:
 from langchain_community.chat_models import ChatOllama
 from langchain_core.messages import HumanMessage
 
-llm = ChatOllama(model=settings.LLM_MODEL)
+from src.tools.file_io import read_file, write_file, patch_file
+from src.tools.sandbox_exec import run_in_sandbox
+from langchain_core.messages import ToolMessage
+
+TOOLS_MAP = {
+    "read_file": read_file,
+    "write_file": write_file,
+    "patch_file": patch_file,
+    "run_in_sandbox": run_in_sandbox
+}
+
+llm = ChatOllama(model=settings.LLM_MODEL).bind_tools(list(TOOLS_MAP.values()))
 
 from src.core.logging_config import orchestrator_logger as logger
 
@@ -58,14 +69,38 @@ def node_tool_execution(state: GraphState) -> Dict[str, Any]:
             # Block the repeated execution immediately
             return {
                 "tool_error_count": state.tool_error_count + 1,
-                "messages": [SystemMessage(content="System block: This exact tool call already failed. Generate a completely new approach.")]
+                "messages": [ToolMessage(
+                    content="System block: This exact tool call already failed. Generate a completely new approach.",
+                    tool_call_id=tc["id"],
+                    name=tc["name"]
+                )]
             }
         else:
-            # Mock failure of a valid new tool execution
-            return {
-                "failed_tool_hashes": [t_hash], # LangGraph will append or we append natively
-                "messages": [SystemMessage(content=f"Tool {tc['name']} failed.")]
-            }
+            # ACTUALLY EXECUTE THE TOOL
+            try:
+                if tc["name"] not in TOOLS_MAP:
+                    raise ValueError(f"Unknown tool: {tc['name']}")
+                    
+                tool_fn = TOOLS_MAP[tc["name"]]
+                result = tool_fn.invoke(tc["args"])
+                
+                return {
+                    "messages": [ToolMessage(
+                        content=str(result),
+                        tool_call_id=tc["id"],
+                        name=tc["name"]
+                    )]
+                }
+            except Exception as e:
+                return {
+                    "failed_tool_hashes": [t_hash], 
+                    "tool_error_count": state.tool_error_count + 1,
+                    "messages": [ToolMessage(
+                        content=f"Tool failed: {e}",
+                        tool_call_id=tc["id"],
+                        name=tc["name"]
+                    )]
+                }
     return {}
 
 def node_review(state: GraphState) -> Dict[str, Any]:

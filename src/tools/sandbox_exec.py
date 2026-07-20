@@ -2,9 +2,11 @@ import os
 import time
 import json
 import uuid
+from langchain_core.tools import tool
 from src.core.config import settings
 from src.core.logging_config import sandbox_logger as logger
 
+@tool
 def run_in_sandbox(command: str, timeout: int = 30) -> dict:
     """Executes a shell command by sending it to the sandbox via filesystem exchange."""
     task_id = f"task_{uuid.uuid4().hex}"
