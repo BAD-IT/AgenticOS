@@ -255,30 +255,8 @@ const connectSockets = () => {
                 const loader = document.getElementById('chat-loading-indicator');
                 if (loader) loader.style.display = 'none';
                 
-                // If payload includes queue metrics, map them to our curated pipelines
-                if (p.queue_counts) {
-                    const ingest = (p.queue_counts.USER_INPUT || 0) + (p.queue_counts.TASKS || 0);
-                    const process = (p.queue_counts.PENDING || 0) + (p.queue_counts.EMBEDDING || 0) + (p.queue_counts.IO_WAIT || 0);
-                    const valid = (p.queue_counts.REVIEW || 0);
-                    const out = (p.queue_counts.RESULT_OUTPUT || 0) + (p.queue_counts.NOTIFICATION || 0);
-                    const err = (p.queue_counts.ERROR || 0);
-                    
-                    const elIngest = document.getElementById('pipe-ingest');
-                    const elProcess = document.getElementById('pipe-process');
-                    const elValid = document.getElementById('pipe-valid');
-                    const elOut = document.getElementById('pipe-out');
-                    const elErrorRow = document.getElementById('pipe-error-row');
-                    const elError = document.getElementById('pipe-error');
-                    
-                    if (elIngest) elIngest.innerText = ingest;
-                    if (elProcess) elProcess.innerText = process;
-                    if (elValid) elValid.innerText = valid;
-                    if (elOut) elOut.innerText = out;
-                    if (elError) {
-                        elError.innerText = err;
-                        elErrorRow.style.display = err > 0 ? 'block' : 'none';
-                    }
-                }
+                // If a task changed state, re-fetch queues to update the Telemetry tab
+                fetchQueues();
             }
         } catch(err) {
             console.error(err);
@@ -449,8 +427,47 @@ setInterval(() => {
     if (inboxTree) fetchWorkspaceFiles();
 }, 10000);
 
+}, 10000);
+
+const updateQueueCounts = (counts) => {
+    let ingest = (counts['USER_INPUT'] || 0) + (counts['TASK'] || 0);
+    let process = (counts['PENDING'] || 0) + (counts['EMBEDDING'] || 0) + (counts['IO_WAIT'] || 0);
+    let valid = (counts['REVIEW'] || 0);
+    let out = (counts['RESULT_OUTPUT'] || 0) + (counts['NOTIFICATION'] || 0);
+    let err = (counts['ERROR'] || 0);
+
+    const elIngest = document.getElementById('queue-ingest');
+    const elProcess = document.getElementById('queue-process');
+    const elValid = document.getElementById('queue-valid');
+    const elOut = document.getElementById('queue-out');
+    const elErr = document.getElementById('queue-error');
+    const elErrCont = document.getElementById('queue-error-container');
+
+    if (elIngest) elIngest.innerText = ingest;
+    if (elProcess) elProcess.innerText = process;
+    if (elValid) elValid.innerText = valid;
+    if (elOut) elOut.innerText = out;
+    if (elErr && elErrCont) {
+        elErr.innerText = err;
+        elErrCont.style.display = err > 0 ? "block" : "none";
+    }
+};
+
+const fetchQueues = async () => {
+    try {
+        const res = await fetch(`/api/v1/telemetry/queues`);
+        const data = await res.json();
+        if (data.queues) {
+            updateQueueCounts(data.queues);
+        }
+    } catch(e) {
+        console.error("Failed to fetch queue counts", e);
+    }
+};
+
 fetchDB();
 fetchWorkspaceFiles();
+fetchQueues();
 
 // --- LOGS WEBSOCKET ---
 let logSocket;
