@@ -491,3 +491,26 @@ const connectLogSocket = () => {
 document.getElementById('log-file-select')?.addEventListener('change', connectLogSocket);
 
 connectLogSocket();
+
+// --- CANVAS TOGGLE ---
+const canvasToggleBtn = document.getElementById('canvas-toggle');
+const systemStateContent = document.getElementById('system-state-content');
+const canvasIframeRef = document.getElementById('canvas-iframe');
+let isCanvasOpen = false;
+
+if (canvasToggleBtn) {
+    canvasToggleBtn.addEventListener('click', () => {
+        isCanvasOpen = !isCanvasOpen;
+        if (isCanvasOpen) {
+            systemStateContent.style.display = 'none';
+            canvasIframeRef.style.display = 'block';
+            // Load from outbox root index.html
+            canvasIframeRef.src = `http://${location.hostname}:3000`; // Assuming canvas runs on 3000 in sandbox
+            canvasToggleBtn.style.background = 'rgba(255,255,255,0.3)';
+        } else {
+            canvasIframeRef.style.display = 'none';
+            systemStateContent.style.display = 'block';
+            canvasToggleBtn.style.background = 'rgba(255,255,255,0.1)';
+        }
+    });
+}
