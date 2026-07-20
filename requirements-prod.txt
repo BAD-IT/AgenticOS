@@ -6,3 +6,6 @@ fastapi
 uvicorn
 litellm
 python-dotenv
+langchain
+langchain-community
+langchain-ollama

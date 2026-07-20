@@ -2,7 +2,7 @@ import os
 import glob
 import logging
 from typing import List
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)

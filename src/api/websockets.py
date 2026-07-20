@@ -34,6 +34,33 @@ async def stream_notifications(websocket: WebSocket):
             await conn.remove_listener("system_notifications_channel", handle_notification)
             await pool.release(conn)
 
+@router.websocket("/api/v1/stream/debug")
+async def stream_debug(websocket: WebSocket):
+    """Cognitive Trace Feed: Streams LangGraph state diffs to the WebUI in real-time."""
+    await websocket.accept()
+    conn = None
+    
+    async def handle_debug(connection, pid, channel, payload):
+        try:
+            await websocket.send_text(payload)
+        except Exception:
+            pass
+
+    try:
+        pool = websocket.app.state.pool
+        conn = await pool.acquire()
+        await conn.add_listener("system_debug_channel", handle_debug)
+        
+        while True:
+            await websocket.receive_text()
+            
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if conn:
+            await conn.remove_listener("system_debug_channel", handle_debug)
+            await pool.release(conn)
+
 @router.websocket("/api/v1/stream/chat")
 async def stream_chat(websocket: WebSocket):
     """Interactive UI Socket: Bidirectional connection for the center panel."""

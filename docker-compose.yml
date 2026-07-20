@@ -33,6 +33,20 @@ services:
     depends_on:
       - db
 
+  worker:
+    build: .
+    container_name: agenticos_worker
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-agenticos}
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs:rw
+      - ./workspace/inbox:/workspace/inbox:ro
+      - ./workspace/outbox:/workspace/outbox:rw
+    command: bash -c "PYTHONPATH=/app python src/core/worker.py"
+    depends_on:
+      - db
+
   artifact_runner:
     build:
       context: .

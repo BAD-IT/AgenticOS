@@ -16,7 +16,7 @@ def hash_tool_call(tool_name: str, parameters: Dict[str, Any]) -> str:
     tool_data = f"{tool_name}:{json.dumps(parameters, sort_keys=True)}"
     return hashlib.sha256(tool_data.encode()).hexdigest()
 
-from langchain_community.chat_models import ChatOllama
+from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
 
 from src.tools.file_io import read_file, write_file, patch_file
