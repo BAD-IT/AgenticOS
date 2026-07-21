@@ -2,9 +2,10 @@ import os
 import time
 import json
 import subprocess
+from src.core.config import settings
 
-INBOX_DIR = "/workspace/inbox"
-OUTBOX_DIR = "/workspace/outbox"
+INBOX_DIR = settings.INBOX_DIR
+OUTBOX_DIR = settings.OUTBOX_DIR
 
 def process_tasks():
     while True:

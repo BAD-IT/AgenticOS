@@ -20,6 +20,21 @@ body, html {
     flex-direction: column;
 }
 
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2); 
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(100, 140, 255, 0.3); 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 140, 255, 0.5); 
+}
+
 #top-bar {
     display: flex;
     justify-content: space-between;

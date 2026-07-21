@@ -1,6 +1,7 @@
 import asyncio
 from src.graph.workflow import create_graph
 from src.core.models import GraphState, TaskObject, TaskStatus
+from src.core.config import settings
 
 async def main():
     print("Initializing LangGraph Cognitive Engine...")
@@ -9,7 +10,7 @@ async def main():
     # Create a mock task mimicking a DB row
     task = TaskObject(
         task_id="test-e2e",
-        intent="Write a file named /workspace/outbox/test.txt with the content 'Hello from LangGraph'",
+        intent=f"Write a file named {settings.OUTBOX_DIR}/test.txt with the content 'Hello from LangGraph'",
         status=TaskStatus.USER_INPUT
     )
     
