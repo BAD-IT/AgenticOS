@@ -179,8 +179,12 @@ const loadWorkspaceHistory = async (wsNum) => {
                 // Each row represents one task: the original intent (user) plus,
                 // once processed, the agent's response merged into the same payload.
                 appendChat(parsed.intent || JSON.stringify(parsed), 'user');
-                if (parsed.response || parsed.action || parsed.message) {
-                    appendChat(parsed.response || parsed.action || parsed.message, 'agent');
+                if (parsed.clarification_question) {
+                    appendChat('🔍 ' + parsed.clarification_question, 'system');
+                } else if (parsed.response || parsed.action || parsed.message) {
+                    let text = parsed.response || parsed.action || parsed.message;
+                    text = text.replace(/<CLARIFICATION_NEEDED>[\s\S]*?<\/\s*CLARIFICATION_NEEDED>/gi, '').trim();
+                    if (text) appendChat(text, 'agent');
                 }
             });
         }
@@ -314,7 +318,10 @@ const connectSockets = () => {
                     // Track which task needs the reply
                     if (row.message_id) pendingClarificationTaskId = row.message_id;
                 } else if (p.action || p.message || p.response) {
-                    appendChat(p.action || p.message || p.response, 'agent');
+                    let text = p.action || p.message || p.response;
+                    // Strip raw <CLARIFICATION_NEEDED>...</CLARIFICATION_NEEDED> XML that the LLM may emit
+                    text = text.replace(/<CLARIFICATION_NEEDED>[\s\S]*?<\/\s*CLARIFICATION_NEEDED>/gi, '').trim();
+                    if (text) appendChat(text, 'agent');
                 }
                 
                 // Only hide the loader once the task has actually finished (RESULT_OUTPUT/ERROR),
@@ -323,6 +330,8 @@ const connectSockets = () => {
                     const loader = document.getElementById('chat-loading-indicator');
                     if (loader) loader.style.display = 'none';
                     if (typeof finalizeStream === 'function') finalizeStream();
+                    // Allow left panel REST refresh now that the task is done
+                    liveDebugActive = false;
                 }
                 
                 // If a task changed state, re-fetch queues and debug traces
@@ -823,7 +832,14 @@ const connectLLMStream = () => {
                     chatHistory.appendChild(streamingMsgEl);
                 }
                 streamingMsgEl.textContent += data.token;
-                chatHistory.scrollTop = chatHistory.scrollHeight;
+                // If the LLM is emitting a <CLARIFICATION_NEEDED> block, suppress
+                // the raw XML — the clean question will arrive via the chat WebSocket.
+                if (streamingMsgEl.textContent.includes('<CLARIFICATION_NEEDED>')) {
+                    streamingMsgEl.remove();
+                    streamingMsgEl = null;
+                } else {
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                }
             }
         } catch(err) {}
     };
