@@ -63,13 +63,32 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
             logger.error(f"RAG Skill Retrieval Error: {e}")
 
     # Real LLM generation
-    sys_msg = SystemMessage(content=f"You are Agentic OS, executing tasks in a secure sandbox.\n<SYSTEM_PROMPT> When modifying files larger than 50 lines, you MUST use the `patch_file` tool instead of `write_file`.</SYSTEM_PROMPT>{skill_context}")
+    sys_msg = SystemMessage(content=(
+        "You are Agentic OS, executing tasks in a secure sandbox.\n"
+        "<SYSTEM_PROMPT>\n"
+        "When modifying files larger than 50 lines, you MUST use the `patch_file` tool instead of `write_file`.\n"
+        "</SYSTEM_PROMPT>\n"
+        "<CLARIFICATION_PROTOCOL>\n"
+        "If the user's request is missing critical parameters (file paths, URLs, port numbers, target names, "
+        "credentials, or any value you would otherwise have to guess), do NOT assume defaults. Instead, respond "
+        "with ONLY the following XML block and nothing else:\n"
+        '<CLARIFICATION_NEEDED>{"question": "your question here", "missing_params": ["param1"]}</CLARIFICATION_NEEDED>\n'
+        "</CLARIFICATION_PROTOCOL>"
+        f"{skill_context}"
+    ))
     
     msgs = [sys_msg]
     msgs.extend(messages)
     
     try:
         response = llm.invoke(msgs)
+        # Check if the LLM is requesting clarification
+        content = getattr(response, "content", "") or ""
+        if "<CLARIFICATION_NEEDED>" in content and "</CLARIFICATION_NEEDED>" in content:
+            # Mark the task as requiring clarification
+            if current_task:
+                current_task.status = TaskStatus.REQUIRES_CLARIFICATION
+            return {"messages": [response], "current_task": current_task}
         return {"messages": [response]}
     except Exception as e:
         return {"messages": [SystemMessage(content=f"LLM execution failed: {e}")]}
@@ -126,8 +145,61 @@ def node_tool_execution(state: GraphState) -> Dict[str, Any]:
 
 def node_review(state: GraphState) -> Dict[str, Any]:
     # Level 2 Protection: The Constitution Node (Overseer)
+    overseer_count = state.get("overseer_invocation_count", 0) + 1
+    
+    # If the Overseer has already been invoked MAX_OVERSEER_RETRIES times, give up
+    if overseer_count > settings.MAX_OVERSEER_RETRIES:
+        current_task = state.get("current_task")
+        if current_task:
+            current_task.status = TaskStatus.ERROR
+        return {
+            "messages": [SystemMessage(content="<SYSTEM_OVERRIDE> Maximum Overseer retries exhausted. Routing task to ERROR.")],
+            "current_task": current_task,
+            "overseer_invocation_count": overseer_count
+        }
+    
+    # Build failure context from recent messages
+    messages = state.get("messages", [])
+    recent_history = []
+    for m in messages[-10:]:
+        content = getattr(m, "content", "")
+        if content:
+            role = type(m).__name__
+            recent_history.append(f"[{role}] {content[:500]}")
+    failure_context = "\n".join(recent_history)
+    
+    # Use a plain LLM (no tools) for the Overseer analysis
+    overseer_llm = ChatOllama(model=settings.LLM_MODEL, base_url=settings.OLLAMA_API_BASE)
+    overseer_prompt = SystemMessage(content=(
+        "You are the Agentic OS Overseer (Constitution Node). You do NOT solve the user's task.\n"
+        "Your role is to analyze WHY the worker agent failed repeatedly and inject a mandatory "
+        "strategic directive to break the failure loop.\n\n"
+        "Rules:\n"
+        "1. Read the failure history below carefully.\n"
+        "2. Identify the ROOT CAUSE of repeated failures.\n"
+        "3. Output a single <SYSTEM_OVERRIDE> directive telling the worker what to STOP doing "
+        "and what NEW approach to use instead.\n"
+        "4. Be specific and actionable. Reference actual error messages from the history.\n"
+        "5. Keep your response under 200 words.\n"
+    ))
+    
+    try:
+        response = overseer_llm.invoke([
+            overseer_prompt,
+            HumanMessage(content=f"FAILURE HISTORY (last {len(messages[-10:])} messages):\n{failure_context}")
+        ])
+        override_content = getattr(response, "content", "")
+        # Ensure it starts with the override tag
+        if "<SYSTEM_OVERRIDE>" not in override_content:
+            override_content = f"<SYSTEM_OVERRIDE> {override_content}"
+    except Exception as e:
+        logger.error(f"Overseer LLM call failed: {e}")
+        override_content = "<SYSTEM_OVERRIDE> Overseer analysis failed. Stop repeating the same approach and try a fundamentally different strategy."
+    
     return {
-        "messages": [SystemMessage(content="<SYSTEM_OVERRIDE> Stop using the failing approach. Try browser automation instead.")]
+        "messages": [SystemMessage(content=override_content)],
+        "tool_error_count": 0,
+        "overseer_invocation_count": overseer_count
     }
 
 async def node_result(state: GraphState) -> Dict[str, Any]:
@@ -161,6 +233,10 @@ def route_from_thinking(state: GraphState) -> str:
     if state["current_task"] and state["current_task"].status == TaskStatus.REVIEW:
         return END
     
+    # If the LLM requested clarification, stop the graph — the worker will suspend the task
+    if state["current_task"] and state["current_task"].status == TaskStatus.REQUIRES_CLARIFICATION:
+        return END
+    
     last_msg = state["messages"][-1] if state["messages"] else None
     if last_msg and getattr(last_msg, "tool_calls", None):
         return "Node_Tool_Execution"
@@ -176,6 +252,13 @@ def route_from_tool(state: GraphState) -> str:
         return "Node_Review"
     return "Node_Worker_Thinking"
 
+def route_from_review(state: GraphState) -> str:
+    # If the task was marked ERROR by the Overseer (max retries exhausted), stop
+    current_task = state.get("current_task")
+    if current_task and current_task.status == TaskStatus.ERROR:
+        return END
+    return "Node_Worker_Thinking"
+
 def create_graph(checkpointer=None) -> StateGraph:
     workflow = StateGraph(GraphState)
     
@@ -188,7 +271,7 @@ def create_graph(checkpointer=None) -> StateGraph:
     
     workflow.add_conditional_edges("Node_Worker_Thinking", route_from_thinking)
     workflow.add_conditional_edges("Node_Tool_Execution", route_from_tool)
-    workflow.add_edge("Node_Review", "Node_Worker_Thinking")
+    workflow.add_conditional_edges("Node_Review", route_from_review)
     workflow.add_edge("Node_Result", END)
     
     return workflow.compile(checkpointer=checkpointer)

@@ -1,4 +1,5 @@
 import os
+import json
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.staticfiles import StaticFiles
@@ -52,6 +53,34 @@ async def submit_task(task: TaskObject, request: Request, workspace_id: int = 1)
                 msg_id, task.model_dump_json(), workspace_id
             )
             return {"status": "accepted", "message_id": msg_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/tasks/{message_id}/clarify")
+async def clarify_task(message_id: str, request: Request):
+    """Resume a task that is waiting for user clarification."""
+    try:
+        body = await request.json()
+        answer = body.get("answer", "")
+        if not answer:
+            raise HTTPException(status_code=400, detail="answer is required")
+        
+        async with request.app.state.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT status FROM system_tasks WHERE message_id = $1", message_id
+            )
+            if not row:
+                raise HTTPException(status_code=404, detail="Task not found")
+            if row['status'] != 'REQUIRES_CLARIFICATION':
+                raise HTTPException(status_code=409, detail=f"Task is not awaiting clarification (status: {row['status']})")
+            
+            await conn.execute(
+                "UPDATE system_tasks SET status = 'USER_INPUT', payload = payload || $2::jsonb WHERE message_id = $1",
+                message_id, json.dumps({"clarification_answer": answer, "intent": answer})
+            )
+        return {"status": "resumed", "message_id": message_id}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
