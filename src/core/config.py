@@ -15,5 +15,8 @@ class Config:
     CHAT_HISTORY_LIMIT = int(os.getenv("CHAT_HISTORY_LIMIT", "20"))
     MAX_OVERSEER_RETRIES = int(os.getenv("MAX_OVERSEER_RETRIES", "2"))
     WORKER_FALLBACK_POLL_SECONDS = int(os.getenv("WORKER_FALLBACK_POLL_SECONDS", "30"))
+    REVIEW_MODEL = os.getenv("REVIEW_MODEL", "")
+    API_KEY = os.getenv("AGENTICOS_API_KEY", "")
+    DEBUG_TRACE_TTL_DAYS = int(os.getenv("DEBUG_TRACE_TTL_DAYS", "7"))
 
 settings = Config()

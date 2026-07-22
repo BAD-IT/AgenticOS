@@ -18,6 +18,14 @@ let currentWorkspace = 1;
 let totalWorkspaces = 1;
 let pendingClarificationTaskId = null;
 
+// Exponential backoff helper for WebSocket reconnection
+const wsBackoff = {};
+const getBackoffDelay = (key) => {
+    wsBackoff[key] = Math.min((wsBackoff[key] || 1000) * 2, 30000);
+    return wsBackoff[key] + Math.random() * 1000;
+};
+const resetBackoff = (key) => { wsBackoff[key] = 1000; };
+
 // Resizer logic
 let isDraggingLeft = false;
 let isDraggingRight = false;
@@ -262,6 +270,8 @@ let notifSocket, chatSocket;
 
 const connectSockets = () => {
     notifSocket = new WebSocket(`ws://${location.host}/api/v1/stream/notifications`);
+    notifSocket.onopen = () => resetBackoff('notif');
+    notifSocket.onclose = () => { setTimeout(connectSockets, getBackoffDelay('notif')); };
     notifSocket.onmessage = (e) => {
         try {
             const row = JSON.parse(e.data);
@@ -303,6 +313,7 @@ const connectSockets = () => {
                 if (p.status === 'RESULT_OUTPUT' || p.status === 'ERROR' || p.status === 'REQUIRES_CLARIFICATION') {
                     const loader = document.getElementById('chat-loading-indicator');
                     if (loader) loader.style.display = 'none';
+                    if (typeof finalizeStream === 'function') finalizeStream();
                 }
                 
                 // If a task changed state, re-fetch queues and debug traces
@@ -656,9 +667,9 @@ const connectLogSocket = () => {
             logFeed.scrollTop = logFeed.scrollHeight;
         }
     };
+    logSocket.onopen = () => resetBackoff('log');
     logSocket.onclose = () => {
-        // Only auto-reconnect if it wasn't a deliberate change
-        setTimeout(connectLogSocket, 5000);
+        setTimeout(connectLogSocket, getBackoffDelay('log'));
     };
 };
 
@@ -751,9 +762,80 @@ const connectDebugSocket = () => {
             console.error("Error parsing debug trace", err);
         }
     };
+    debugSocket.onopen = () => resetBackoff('debug');
     debugSocket.onclose = () => {
-        setTimeout(connectDebugSocket, 5000);
+        setTimeout(connectDebugSocket, getBackoffDelay('debug'));
     };
 };
 connectDebugSocket();
+
+// --- CANVAS MODE ---
+let canvasActive = false;
+const canvasToggleBtn = document.getElementById('canvas-toggle-btn');
+if (canvasToggleBtn) {
+    canvasToggleBtn.addEventListener('click', () => {
+        const traceView = document.getElementById('system-state-content');
+        const canvasView = document.getElementById('canvas-content');
+        const titleEl = document.getElementById('left-panel-title');
+        canvasActive = !canvasActive;
+        if (canvasActive) {
+            traceView.style.display = 'none';
+            canvasView.style.display = 'block';
+            titleEl.textContent = 'Canvas';
+            canvasToggleBtn.textContent = 'Trace';
+            canvasToggleBtn.style.color = '#38bdf8';
+        } else {
+            traceView.style.display = 'flex';
+            canvasView.style.display = 'none';
+            titleEl.textContent = 'Live Cognitive Trace';
+            canvasToggleBtn.textContent = 'Canvas';
+            canvasToggleBtn.style.color = '#94a3b8';
+        }
+    });
+}
+
+// --- LLM STREAMING SOCKET ---
+let llmStreamSocket;
+let streamingMsgEl = null;
+const connectLLMStream = () => {
+    llmStreamSocket = new WebSocket(`ws://${location.host}/api/v1/stream/llm`);
+    llmStreamSocket.onopen = () => resetBackoff('llm');
+    llmStreamSocket.onclose = () => { setTimeout(connectLLMStream, getBackoffDelay('llm')); };
+    llmStreamSocket.onmessage = (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            if (data.token) {
+                if (!streamingMsgEl) {
+                    streamingMsgEl = document.createElement('div');
+                    streamingMsgEl.className = 'chat-msg agent streaming';
+                    streamingMsgEl.textContent = '';
+                    chatHistory.appendChild(streamingMsgEl);
+                }
+                streamingMsgEl.textContent += data.token;
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+        } catch(err) {}
+    };
+};
+connectLLMStream();
+
+// Finalize streaming message when agent response arrives
+const finalizeStream = () => {
+    if (streamingMsgEl) {
+        streamingMsgEl.classList.remove('streaming');
+        streamingMsgEl = null;
+    }
+};
+
+// Load HTML artifact into canvas iframe
+const loadCanvas = (htmlContent) => {
+    const iframe = document.getElementById('canvas-iframe');
+    if (!iframe) return;
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+    // Auto-switch to canvas mode
+    if (!canvasActive && canvasToggleBtn) canvasToggleBtn.click();
+};
 
