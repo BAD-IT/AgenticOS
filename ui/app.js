@@ -197,6 +197,10 @@ const switchWorkspace = (wsNum) => {
     document.querySelector(`[data-ws="${wsNum}"]`).classList.add('active');
     currentWorkspace = wsNum;
     document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum}`;
+    // Hide any leftover loading indicator from the previous workspace
+    const loader = document.getElementById('chat-loading-indicator');
+    if (loader) loader.style.display = 'none';
+    if (typeof finalizeStream === 'function') finalizeStream();
     loadWorkspaceHistory(wsNum);
     fetchDebugTraces();
     lastLiveTaskId = null; // force a fresh task separator on the next live event for this workspace
@@ -298,8 +302,13 @@ const connectSockets = () => {
         try {
             const row = JSON.parse(e.data);
             if (row && row.payload) {
+                // Filter: only display messages for the active workspace
+                if (row.workspace_id && row.workspace_id !== currentWorkspace) return;
+
                 const p = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
-                if (p.status === 'REQUIRES_CLARIFICATION') {
+                // Use row.status (DB column) — the payload's inner status is never updated
+                const taskStatus = row.status || p.status;
+                if (taskStatus === 'REQUIRES_CLARIFICATION') {
                     const question = p.clarification_question || p.message || 'Please provide more details.';
                     appendChat('🔍 ' + question, 'system');
                     // Track which task needs the reply
@@ -310,7 +319,7 @@ const connectSockets = () => {
                 
                 // Only hide the loader once the task has actually finished (RESULT_OUTPUT/ERROR),
                 // not on the initial USER_INPUT/PENDING notification fired right after submission.
-                if (p.status === 'RESULT_OUTPUT' || p.status === 'ERROR' || p.status === 'REQUIRES_CLARIFICATION') {
+                if (taskStatus === 'RESULT_OUTPUT' || taskStatus === 'ERROR' || taskStatus === 'REQUIRES_CLARIFICATION') {
                     const loader = document.getElementById('chat-loading-indicator');
                     if (loader) loader.style.display = 'none';
                     if (typeof finalizeStream === 'function') finalizeStream();
