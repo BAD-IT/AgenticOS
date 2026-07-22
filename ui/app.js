@@ -339,6 +339,8 @@ connectSockets();
 
 // Always focus input
 document.addEventListener('click', (e) => {
+    const sel = window.getSelection();
+    if (sel && sel.toString().length > 0) return; // preserve text selection for copy
     if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('resizer') && !e.target.classList.contains('workspace')) {
         cliInput.focus();
     }
