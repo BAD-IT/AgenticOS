@@ -38,7 +38,7 @@ We are building a true **Agentic Operating System**, defined by core OS principl
 ### 1. Environment Variables
 Create a `.env` file in the root directory:
 ```env
-LLM_MODEL=ollama/gemma4:12b
+LLM_MODEL=gemma4:12b
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/agenticos
 OLLAMA_API_BASE=http://localhost:11434
 ```

@@ -138,8 +138,12 @@ const loadWorkspaceHistory = async (wsNum) => {
             data.history.forEach(item => {
                 let parsed = item.payload;
                 if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                const text = parsed.action || parsed.message || JSON.stringify(parsed);
-                appendChat(text, item.status === 'USER_INPUT' ? 'user' : 'agent');
+                // Each row represents one task: the original intent (user) plus,
+                // once processed, the agent's response merged into the same payload.
+                appendChat(parsed.intent || JSON.stringify(parsed), 'user');
+                if (parsed.response || parsed.action || parsed.message) {
+                    appendChat(parsed.response || parsed.action || parsed.message, 'agent');
+                }
             });
         }
         appendChat(`Switched to Workspace ${wsNum}`, 'system');
@@ -157,6 +161,7 @@ const switchWorkspace = (wsNum) => {
     document.getElementById('status').innerHTML = `Agentic OS - Workspace ${wsNum}`;
     loadWorkspaceHistory(wsNum);
     fetchDebugTraces();
+    lastLiveTaskId = null; // force a fresh task separator on the next live event for this workspace
 };
 
 // Bind clicks to existing workspace tabs
@@ -255,13 +260,16 @@ const connectSockets = () => {
                 const p = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
                 if (p.status === 'REQUIRES_CLARIFICATION') {
                     appendChat(p.message || 'Clarification required.', 'system');
-                } else if (p.action || p.message) {
-                    appendChat(p.action || p.message, 'agent');
+                } else if (p.action || p.message || p.response) {
+                    appendChat(p.action || p.message || p.response, 'agent');
                 }
                 
-                // Hide loading indicator when we get a response
-                const loader = document.getElementById('chat-loading-indicator');
-                if (loader) loader.style.display = 'none';
+                // Only hide the loader once the task has actually finished (RESULT_OUTPUT/ERROR),
+                // not on the initial USER_INPUT/PENDING notification fired right after submission.
+                if (p.status === 'RESULT_OUTPUT' || p.status === 'ERROR' || p.status === 'REQUIRES_CLARIFICATION') {
+                    const loader = document.getElementById('chat-loading-indicator');
+                    if (loader) loader.style.display = 'none';
+                }
                 
                 // If a task changed state, re-fetch queues and debug traces
                 fetchQueues();
@@ -491,8 +499,22 @@ const fetchDebugTraces = async () => {
         
         let htmlFull = '';
         let htmlMinimal = '';
+        let prevTaskId = null;
         
         traces.forEach(trace => {
+            if (trace.task_id !== prevTaskId) {
+                const shortId = (trace.task_id || 'unknown').split('-')[0];
+                const sepHtml = `
+                    <div style="display:flex; align-items:center; gap:8px; margin:12px 0; color:#64748b; font-size:10px; text-transform:uppercase; letter-spacing:1px;">
+                        <div style="flex-grow:1; height:1px; background:rgba(255,255,255,0.12);"></div>
+                        <span>&#9654; New Task ${shortId}</span>
+                        <div style="flex-grow:1; height:1px; background:rgba(255,255,255,0.12);"></div>
+                    </div>
+                `;
+                htmlFull += sepHtml;
+                htmlMinimal += sepHtml;
+                prevTaskId = trace.task_id;
+            }
             const timeStr = new Date(trace.created_at).toLocaleTimeString();
             let nodeColor = '#3b82f6'; // default blue
             let icon = '⚙️';
@@ -608,6 +630,26 @@ connectLogSocket();
 
 // --- DEBUG TRACE WEBSOCKET ---
 let debugSocket;
+let lastLiveTaskId = null;
+const buildTaskSeparator = (taskId) => {
+    const shortId = (taskId || 'unknown').split('-')[0];
+    const sep = document.createElement('div');
+    sep.style.display = 'flex';
+    sep.style.alignItems = 'center';
+    sep.style.gap = '8px';
+    sep.style.margin = '12px 0';
+    sep.style.color = '#64748b';
+    sep.style.fontSize = '10px';
+    sep.style.textTransform = 'uppercase';
+    sep.style.letterSpacing = '1px';
+    sep.innerHTML = `
+        <div style="flex-grow:1; height:1px; background:rgba(255,255,255,0.12);"></div>
+        <span>&#9654; New Task ${shortId}</span>
+        <div style="flex-grow:1; height:1px; background:rgba(255,255,255,0.12);"></div>
+    `;
+    return sep;
+};
+
 const connectDebugSocket = () => {
     const traceFeed = document.getElementById('cognitive-trace-feed');
     const debugFeed = document.getElementById('debug-feed');
@@ -619,12 +661,16 @@ const connectDebugSocket = () => {
             const data = JSON.parse(e.data);
             const diff = data.state_diff ? JSON.parse(data.state_diff) : {};
             
+            const isNewTask = data.task_id !== lastLiveTaskId;
+            lastLiveTaskId = data.task_id;
+            
             // 1. Update Left Panel (Live Pulse)
             if (traceFeed) {
                 // Clear placeholder if first event
                 if (traceFeed.innerText.includes("No active trace")) {
                     traceFeed.innerHTML = "";
                 }
+                if (isNewTask) traceFeed.appendChild(buildTaskSeparator(data.task_id));
                 const traceItem = document.createElement('div');
                 traceItem.style.marginBottom = "4px";
                 if (data.node_name === "Node_Worker_Thinking") {
@@ -647,6 +693,8 @@ const connectDebugSocket = () => {
             if (debugFeed.innerText.includes("Awaiting state events")) {
                 debugFeed.innerHTML = "";
             }
+            // Chronological order (oldest -> newest) so the task separator stays meaningful
+            if (isNewTask) debugFeed.appendChild(buildTaskSeparator(data.task_id));
             const debugItem = document.createElement('div');
             debugItem.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
             debugItem.style.paddingBottom = "10px";
@@ -656,7 +704,8 @@ const connectDebugSocket = () => {
                 <div style="color:#94a3b8; font-size:10px;">${data.created_at || new Date().toISOString()}</div>
                 <pre style="margin-top:5px; background:rgba(0,0,0,0.5); padding:8px; border-radius:4px; overflow-x:auto; color:#a78bfa;">${JSON.stringify(diff, null, 2)}</pre>
             `;
-            debugFeed.prepend(debugItem);
+            debugFeed.appendChild(debugItem);
+            debugFeed.scrollTop = debugFeed.scrollHeight;
             
         } catch(err) {
             console.error("Error parsing debug trace", err);

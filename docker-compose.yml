@@ -21,6 +21,12 @@ services:
     container_name: agenticos_orchestrator
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-agenticos}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - OLLAMA_HOST=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - LLM_MODEL=${LLM_MODEL:-gemma4:12b}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./src:/app/src
       - ./ui:/app/ui
@@ -38,6 +44,12 @@ services:
     container_name: agenticos_worker
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-agenticos}
+      - OLLAMA_HOST=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - LLM_MODEL=${LLM_MODEL:-gemma4:12b}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs:rw

@@ -11,5 +11,6 @@ class Config:
     OLLAMA_API_BASE = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
     INBOX_DIR = os.getenv("INBOX_DIR", "workspace/inbox")
     OUTBOX_DIR = os.getenv("OUTBOX_DIR", "workspace/outbox")
+    TASK_TIMEOUT_SECONDS = int(os.getenv("TASK_TIMEOUT_SECONDS", "60"))
 
 settings = Config()

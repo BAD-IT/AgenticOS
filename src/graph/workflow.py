@@ -30,7 +30,7 @@ TOOLS_MAP = {
     "run_in_sandbox": run_in_sandbox
 }
 
-llm = ChatOllama(model=settings.LLM_MODEL).bind_tools(list(TOOLS_MAP.values()))
+llm = ChatOllama(model=settings.LLM_MODEL, base_url=settings.OLLAMA_API_BASE).bind_tools(list(TOOLS_MAP.values()))
 
 from src.core.logging_config import orchestrator_logger as logger
 
@@ -39,13 +39,6 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
     messages = state.get("messages", [])
     
     logger.info(f"Orchestrator node_worker_thinking triggered for task: {current_task.intent if current_task else 'Unknown'}")
-    
-    if current_task and not current_task.parameters:
-        current_task.status = TaskStatus.REVIEW
-        return {
-            "current_task": current_task,
-            "messages": [SystemMessage(content="Task halted: REVIEW needed. Parameters missing.")]
-        }
     
     # Retrieval Augmented Generation (RAG) for Skills
     skill_context = ""
@@ -119,7 +112,7 @@ def node_tool_execution(state: GraphState) -> Dict[str, Any]:
                 }
             except Exception as e:
                 return {
-                    "failed_tool_hashes": [t_hash], 
+                    "failed_tool_hashes": failed_tool_hashes + [t_hash],
                     "tool_error_count": tool_error_count + 1,
                     "messages": [ToolMessage(
                         content=f"Tool failed: {e}",
@@ -191,7 +184,7 @@ def create_graph(checkpointer=None) -> StateGraph:
     
     workflow.add_conditional_edges("Node_Worker_Thinking", route_from_thinking)
     workflow.add_conditional_edges("Node_Tool_Execution", route_from_tool)
-    workflow.add_edge("Node_Review", "Node_Result")
+    workflow.add_edge("Node_Review", "Node_Worker_Thinking")
     workflow.add_edge("Node_Result", END)
     
     return workflow.compile(checkpointer=checkpointer)

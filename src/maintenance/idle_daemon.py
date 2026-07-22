@@ -33,10 +33,10 @@ def flush_vram():
 def get_embedding(text: str) -> List[float]:
     """Generates a real vector embedding using Ollama."""
     try:
-        embeddings = OllamaEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            base_url=settings.OLLAMA_API_BASE
-        )
+        # NOTE: The pinned langchain-ollama==0.1.1 OllamaEmbeddings only accepts
+        # `model` (extra=forbid), so base_url cannot be passed here. It falls back
+        # to the underlying ollama client, which reads the OLLAMA_HOST env var.
+        embeddings = OllamaEmbeddings(model=settings.EMBEDDING_MODEL)
         return embeddings.embed_query(text)
     except Exception as e:
         logger.error(f"Failed to generate embedding: {e}")
