@@ -258,30 +258,33 @@ def node_review(state: GraphState) -> Dict[str, Any]:
         "overseer_invocation_count": overseer_count
     }
 
+async def _save_skill_background(intent: str, history: str):
+    """Background task: generate skill abstraction and save to pgvector."""
+    try:
+        skill = await asyncio.to_thread(generate_skill_from_task, intent, history)
+        conn = await asyncpg.connect(DB_URL)
+        try:
+            await conn.execute(
+                "INSERT INTO agent_skills (task_intent, skill_abstraction, embedding) VALUES ($1, $2, $3)",
+                skill["task_intent"], skill["skill_abstraction"], str(skill["embedding"])
+            )
+        finally:
+            await conn.close()
+        logger.info(f"Skill saved for intent: {intent[:60]}")
+    except Exception as e:
+        logger.error(f"Background skill save failed: {e}")
+
 async def node_result(state: GraphState) -> Dict[str, Any]:
-    """Experience Consolidation: Save learned abstractions to pgvector."""
+    """Experience Consolidation: Fire-and-forget skill save so the user isn't blocked."""
     current_task = state.get("current_task")
     messages = state.get("messages", [])
     if current_task:
         intent = current_task.intent
         history = "\n".join([m.content for m in messages if isinstance(m.content, str)])
-        
-        skill = generate_skill_from_task(intent, history)
-        
-        try:
-            conn = await asyncpg.connect(DB_URL)
-            try:
-                await conn.execute(
-                    "INSERT INTO agent_skills (task_intent, skill_abstraction, embedding) VALUES ($1, $2, $3)",
-                    skill["task_intent"], skill["skill_abstraction"], str(skill["embedding"])
-                )
-            finally:
-                await conn.close()
-        except Exception as e:
-            logger.error(f"Error saving skill: {e}")
-            
+        # Schedule skill generation in the background — don't block the response
+        asyncio.create_task(_save_skill_background(intent, history))
         return {
-            "messages": [SystemMessage(content="Task completed and experience saved to pgvector.")]
+            "messages": [SystemMessage(content="Task completed. Experience consolidation scheduled.")]
         }
     return {"tool_error_count": state.get("tool_error_count", 0)}
 

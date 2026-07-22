@@ -26,8 +26,10 @@ def run_in_sandbox(command: str, timeout: int = 30) -> dict:
                 with open(result_file, "r") as f:
                     result = json.load(f)
                 
-                # Cleanup
+                # Cleanup both result and task files
                 os.remove(result_file)
+                if os.path.exists(task_file):
+                    os.remove(task_file)
                 return result
             
             time.sleep(0.5)

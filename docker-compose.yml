@@ -48,12 +48,14 @@ services:
       - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
       - LLM_MODEL=${LLM_MODEL:-gemma4:12b}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - INBOX_DIR=/workspace/inbox
+      - OUTBOX_DIR=/workspace/outbox
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs:rw
-      - ./workspace/inbox:/workspace/inbox:ro
+      - ./workspace/inbox:/workspace/inbox:rw
       - ./workspace/outbox:/workspace/outbox:rw
     command: bash -c "PYTHONPATH=/app python src/core/worker.py"
     depends_on:
@@ -64,6 +66,9 @@ services:
       context: .
       dockerfile: Dockerfile.runner
     container_name: agenticos_artifact_runner
+    environment:
+      - INBOX_DIR=/workspace/inbox
+      - OUTBOX_DIR=/workspace/outbox
     volumes:
       - ./workspace/inbox:/workspace/inbox:ro
       - ./workspace/outbox:/workspace/outbox:rw

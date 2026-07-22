@@ -14,6 +14,10 @@ def process_tasks():
                 if filename.endswith(".sh") and not filename.startswith("."):
                     filepath = os.path.join(INBOX_DIR, filename)
                     result_file = os.path.join(OUTBOX_DIR, f"{filename}.json")
+
+                    # Skip files that already have a result (prevents reprocessing)
+                    if os.path.exists(result_file):
+                        continue
                     
                     try:
                         with open(filepath, "r") as f:
@@ -46,9 +50,7 @@ def process_tasks():
                         # Write result to outbox
                         with open(result_file, "w") as f:
                             json.dump(result, f)
-                            
-                        # Clean up task from inbox
-                        os.remove(filepath)
+                        print(f"Result written: {result_file}")
                         
                     except Exception as e:
                         print(f"Critical error processing {filename}: {e}")
