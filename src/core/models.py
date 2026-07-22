@@ -26,3 +26,4 @@ class GraphState(TypedDict):
     tool_error_count: int
     failed_tool_hashes: List[str]
     messages: Annotated[List[BaseMessage], add_messages]
+    overseer_invocation_count: int

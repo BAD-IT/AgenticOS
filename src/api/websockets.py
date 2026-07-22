@@ -68,8 +68,22 @@ async def stream_chat(websocket: WebSocket):
     conn = None
     
     async def handle_chat_update(connection, pid, channel, payload):
+        """payload is now just message_id — fetch the full row and forward."""
         try:
-            await websocket.send_text(payload)
+            pool = websocket.app.state.pool
+            async with pool.acquire() as fetch_conn:
+                row = await fetch_conn.fetchrow(
+                    "SELECT message_id, payload, status, workspace_id FROM system_tasks WHERE message_id = $1",
+                    payload
+                )
+            if row:
+                import datetime
+                data = dict(row)
+                # Ensure JSON-serializable
+                for k, v in data.items():
+                    if isinstance(v, (datetime.datetime, datetime.date)):
+                        data[k] = v.isoformat()
+                await websocket.send_text(json.dumps(data))
         except Exception:
             pass
 
@@ -83,7 +97,6 @@ async def stream_chat(websocket: WebSocket):
             if data == "/clear":
                 await websocket.send_text(json.dumps({"action": "cleared"}))
             else:
-                # In real scenario, we might insert the task to DB here, but UI uses REST /submit
                 pass
     except WebSocketDisconnect:
         pass

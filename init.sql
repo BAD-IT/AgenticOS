@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS system_debug_trace (
 -- Triggers for Real-Time WebSockets
 CREATE OR REPLACE FUNCTION notify_system_tasks() RETURNS TRIGGER AS $$
 BEGIN
-    PERFORM pg_notify('system_tasks_channel', row_to_json(NEW)::text);
+    PERFORM pg_notify('system_tasks_channel', NEW.message_id);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

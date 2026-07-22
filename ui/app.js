@@ -16,6 +16,7 @@ const tabContents = document.querySelectorAll('.tab-content');
 
 let currentWorkspace = 1;
 let totalWorkspaces = 1;
+let pendingClarificationTaskId = null;
 
 // Resizer logic
 let isDraggingLeft = false;
@@ -113,6 +114,29 @@ cliInput.addEventListener('keydown', (e) => {
                 loader.querySelector('.loader-text').innerText = 'Agent is thinking...';
             }
             
+            // If there's a pending clarification, reply to it instead of creating a new task
+            if (pendingClarificationTaskId) {
+                const taskId = pendingClarificationTaskId;
+                pendingClarificationTaskId = null;
+                if (loader) {
+                    loader.style.display = 'flex';
+                    loader.querySelector('.loader-text').innerText = 'Resuming task with your answer...';
+                }
+                fetch(`/api/v1/tasks/${taskId}/clarify`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ answer: val })
+                }).then(async res => {
+                    if (!res.ok) {
+                        const err = await res.text();
+                        throw new Error(`HTTP ${res.status}: ${err}`);
+                    }
+                }).catch(err => {
+                    appendChat('Error resuming task: ' + err.message, 'system');
+                    if (loader) loader.style.display = 'none';
+                });
+                return;
+            }
             fetch(`/api/v1/tasks/submit?workspace_id=${currentWorkspace}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -266,7 +290,10 @@ const connectSockets = () => {
             if (row && row.payload) {
                 const p = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
                 if (p.status === 'REQUIRES_CLARIFICATION') {
-                    appendChat(p.message || 'Clarification required.', 'system');
+                    const question = p.clarification_question || p.message || 'Please provide more details.';
+                    appendChat('🔍 ' + question, 'system');
+                    // Track which task needs the reply
+                    if (row.message_id) pendingClarificationTaskId = row.message_id;
                 } else if (p.action || p.message || p.response) {
                     appendChat(p.action || p.message || p.response, 'agent');
                 }

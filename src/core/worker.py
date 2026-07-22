@@ -1,12 +1,13 @@
 import asyncio
 import json
 import logging
+import re
 import asyncpg
 from src.core.config import settings
 from src.core.models import GraphState, TaskObject, TaskStatus
 from src.graph.workflow import create_graph
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from psycopg_pool import AsyncConnectionPool
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -43,7 +44,16 @@ def safe_serialize(obj):
 async def run_worker():
     pool = await asyncpg.create_pool(settings.DATABASE_URL)
     
-    logger.info("AgenticOS Background Worker Started. Polling for tasks...")
+    logger.info("AgenticOS Background Worker Started (event-driven via LISTEN/NOTIFY).")
+    
+    # --- Event-driven wake-up via PostgreSQL LISTEN/NOTIFY ---
+    task_event = asyncio.Event()
+    listen_conn = await pool.acquire()
+    
+    def _on_notify(connection, pid, channel, payload):
+        task_event.set()
+    
+    await listen_conn.add_listener("system_tasks_channel", _on_notify)
     
     async with AsyncPostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
         await checkpointer.setup()
@@ -66,11 +76,38 @@ async def run_worker():
                         task = TaskObject(**payload)
                         task.status = TaskStatus.PENDING
                         
+                        # --- Short-Term Memory: inject workspace chat history ---
+                        history_messages = []
+                        try:
+                            history_rows = await conn.fetch(
+                                "SELECT payload FROM system_tasks "
+                                "WHERE workspace_id = $1 AND message_id != $2 "
+                                "AND status IN ('RESULT_OUTPUT', 'ERROR') "
+                                "ORDER BY created_at DESC LIMIT $3",
+                                workspace_id, msg_id, settings.CHAT_HISTORY_LIMIT
+                            )
+                            # Rows are newest-first; reverse to chronological order
+                            for hrow in reversed(history_rows):
+                                try:
+                                    hp = json.loads(hrow['payload'])
+                                    if hp.get('intent'):
+                                        history_messages.append(HumanMessage(content=hp['intent']))
+                                    if hp.get('response'):
+                                        history_messages.append(AIMessage(content=hp['response']))
+                                except (json.JSONDecodeError, KeyError):
+                                    pass
+                        except Exception as hist_err:
+                            logger.warning(f"Failed to load chat history: {hist_err}")
+                        
+                        # Append the current task intent as the latest message
+                        history_messages.append(HumanMessage(content=task.intent))
+                        
                         state = {
                             "current_task": task,
                             "tool_error_count": 0,
                             "failed_tool_hashes": [],
-                            "messages": [HumanMessage(content=task.intent)]
+                            "messages": history_messages,
+                            "overseer_invocation_count": 0
                         }
                         
                         logger.info(f"Executing task: {task.intent} in workspace {workspace_id}")
@@ -109,8 +146,25 @@ async def run_worker():
                                 )
                             continue
                         
+                        # Check if the graph suspended for clarification
+                        clarification_question = None
+                        if last_response_text and "<CLARIFICATION_NEEDED>" in last_response_text:
+                            match = re.search(r'<CLARIFICATION_NEEDED>(.*?)</CLARIFICATION_NEEDED>', last_response_text, re.DOTALL)
+                            if match:
+                                try:
+                                    clar_data = json.loads(match.group(1))
+                                    clarification_question = clar_data.get("question", "Please provide more details.")
+                                except json.JSONDecodeError:
+                                    clarification_question = match.group(1).strip()
+                        
+                        if clarification_question:
+                            await conn.execute(
+                                "UPDATE system_tasks SET status = 'REQUIRES_CLARIFICATION', payload = payload || $2::jsonb WHERE message_id = $1",
+                                msg_id, json.dumps({"clarification_question": clarification_question})
+                            )
+                            logger.info(f"Task {msg_id} suspended for clarification: {clarification_question}")
                         # Update status and surface the final response text to the Chat UI
-                        if last_response_text:
+                        elif last_response_text:
                             await conn.execute(
                                 "UPDATE system_tasks SET status = 'RESULT_OUTPUT', payload = payload || $2::jsonb WHERE message_id = $1",
                                 msg_id, json.dumps({"response": last_response_text})
@@ -133,7 +187,12 @@ async def run_worker():
                     except Exception as inner_e:
                         logger.error(f"Failed to mark task {msg_id} as ERROR: {inner_e}")
                 
-            await asyncio.sleep(2)
+            # Wait for a NOTIFY event or fallback poll after timeout
+            task_event.clear()
+            try:
+                await asyncio.wait_for(task_event.wait(), timeout=settings.WORKER_FALLBACK_POLL_SECONDS)
+            except asyncio.TimeoutError:
+                pass
 
 if __name__ == "__main__":
     asyncio.run(run_worker())
