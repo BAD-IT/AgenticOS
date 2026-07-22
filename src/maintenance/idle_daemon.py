@@ -92,11 +92,13 @@ async def run_idle_daemon(pool: asyncpg.Pool):
                     garbage_collection()
                     flush_vram()
                     
-                    # Debug trace TTL: purge traces older than 7 days
+                    # Debug trace TTL: purge traces older than configured threshold
+                    ttl_days = settings.DEBUG_TRACE_TTL_DAYS
                     deleted = await conn.execute(
-                        "DELETE FROM system_debug_trace WHERE created_at < NOW() - INTERVAL '7 days'"
+                        "DELETE FROM system_debug_trace WHERE created_at < NOW() - make_interval(days => $1)",
+                        ttl_days
                     )
-                    logger.info(f"Idle Daemon: Debug trace cleanup — {deleted}")
+                    logger.info(f"Idle Daemon: Debug trace cleanup (TTL={ttl_days}d) — {deleted}")
                 
                 # Diagnostics triage: classify any un-triaged ERROR tasks
                 error_rows = await conn.fetch(

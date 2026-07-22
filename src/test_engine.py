@@ -14,20 +14,19 @@ async def main():
         status=TaskStatus.USER_INPUT
     )
     
-    state = GraphState(
-        current_task=task,
-        tool_error_count=0,
-        failed_tool_hashes=[],
-        messages=[]
-    )
+    state = {
+        "current_task": task,
+        "tool_error_count": 0,
+        "failed_tool_hashes": [],
+        "messages": [],
+        "overseer_invocation_count": 0
+    }
     
     print(f"\nStarting Execution for Intent: {task.intent}")
     
     # Run the graph
     try:
-        # LangGraph invoke is synchronous but we can run it in async context
-        # Some of our nodes (like node_result) are async, so we use ainvoke
-        final_state = await app.ainvoke(state.model_dump())
+        final_state = await app.ainvoke(state)
         
         print("\n=== Execution Complete ===")
         current_task = final_state.get('current_task')

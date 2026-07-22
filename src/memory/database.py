@@ -5,7 +5,7 @@ async def get_db_pool(dsn: str) -> asyncpg.Pool:
     """
     Initialize the connection pool to PostgreSQL.
     """
-    pool = await asyncpg.create_pool(dsn)
+    pool = await asyncpg.create_pool(dsn, min_size=2, max_size=10)
     return pool
 
 async def init_db(pool: asyncpg.Pool):
