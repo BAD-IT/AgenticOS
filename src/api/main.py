@@ -53,6 +53,16 @@ app.mount("/ui", StaticFiles(directory="ui"), name="ui")
 def read_root():
     return {"status": "ok", "message": "Agentic OS Orchestrator is running"}
 
+@app.get("/api/v1/health")
+async def health_check(request: Request):
+    """Liveness & readiness probe for Docker healthcheck and monitoring."""
+    try:
+        async with request.app.state.pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        return {"status": "healthy", "db": "connected"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "unhealthy", "db": str(e)})
+
 @app.get("/api/v1/settings")
 def get_settings():
     """Returns the current active configuration for the WebUI."""

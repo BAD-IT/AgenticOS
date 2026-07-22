@@ -16,10 +16,10 @@ services:
     restart: unless-stopped
 
   orchestrator:
-    # Use OrbStack as the container runtime on the host system. The docker-compose configuration remains the same.
     build: .
     container_name: agenticos_orchestrator
     environment:
+      - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-agenticos}
       - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
       - OLLAMA_HOST=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
@@ -38,11 +38,19 @@ services:
       - "8000:8000"
     depends_on:
       - db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   worker:
     build: .
     container_name: agenticos_worker
     environment:
+      - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-agenticos}
       - OLLAMA_HOST=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
       - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
@@ -60,6 +68,7 @@ services:
     command: bash -c "PYTHONPATH=/app python src/core/worker.py"
     depends_on:
       - db
+    restart: unless-stopped
 
   artifact_runner:
     build:
@@ -67,6 +76,7 @@ services:
       dockerfile: Dockerfile.runner
     container_name: agenticos_artifact_runner
     environment:
+      - PYTHONUNBUFFERED=1
       - INBOX_DIR=/workspace/inbox
       - OUTBOX_DIR=/workspace/outbox
     volumes:
@@ -75,6 +85,7 @@ services:
     network_mode: none
     mem_limit: 512m
     cpus: "0.5"
+    restart: unless-stopped
 
 volumes:
   pgdata:

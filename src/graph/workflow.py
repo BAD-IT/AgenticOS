@@ -178,7 +178,9 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
     except Exception as e:
         return {"messages": [SystemMessage(content=f"LLM execution failed: {e}")]}
 
-def node_tool_execution(state: GraphState) -> Dict[str, Any]:
+TOOL_TIMEOUT_SECONDS = 60
+
+async def node_tool_execution(state: GraphState) -> Dict[str, Any]:
     # Level 1 Protection: The Tool-Scanner
     messages = state.get("messages", [])
     failed_tool_hashes = state.get("failed_tool_hashes", [])
@@ -201,17 +203,30 @@ def node_tool_execution(state: GraphState) -> Dict[str, Any]:
                 )]
             }
         else:
-            # ACTUALLY EXECUTE THE TOOL
+            # ACTUALLY EXECUTE THE TOOL (non-blocking with per-tool timeout)
             try:
                 if tc["name"] not in TOOLS_MAP:
                     raise ValueError(f"Unknown tool: {tc['name']}")
                     
                 tool_fn = TOOLS_MAP[tc["name"]]
-                result = tool_fn.invoke(tc["args"])
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(tool_fn.invoke, tc["args"]),
+                    timeout=TOOL_TIMEOUT_SECONDS
+                )
                 
                 return {
                     "messages": [ToolMessage(
                         content=str(result),
+                        tool_call_id=tc["id"],
+                        name=tc["name"]
+                    )]
+                }
+            except asyncio.TimeoutError:
+                return {
+                    "failed_tool_hashes": failed_tool_hashes + [t_hash],
+                    "tool_error_count": tool_error_count + 1,
+                    "messages": [ToolMessage(
+                        content=f"Tool '{tc['name']}' timed out after {TOOL_TIMEOUT_SECONDS}s.",
                         tool_call_id=tc["id"],
                         name=tc["name"]
                     )]
@@ -310,10 +325,18 @@ async def node_result(state: GraphState) -> Dict[str, Any]:
     if current_task:
         intent = current_task.intent
         history = "\n".join([m.content for m in messages if isinstance(m.content, str)])
-        # Schedule skill generation in the background — don't block the response
-        asyncio.create_task(_save_skill_background(intent, history))
+
+        # Only consolidate experience for meaningful tasks:
+        # tasks that used tools or had substantive multi-step interaction
+        used_tools = any(getattr(m, "name", None) for m in messages)
+        msg_count = len(messages)
+        if used_tools or msg_count > 3:
+            asyncio.create_task(_save_skill_background(intent, history))
+            return {
+                "messages": [SystemMessage(content="Task completed. Experience consolidation scheduled.")]
+            }
         return {
-            "messages": [SystemMessage(content="Task completed. Experience consolidation scheduled.")]
+            "messages": [SystemMessage(content="Task completed.")]
         }
     return {"tool_error_count": state.get("tool_error_count", 0)}
 

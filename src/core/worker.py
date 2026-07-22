@@ -7,6 +7,7 @@ import urllib.request
 import asyncpg
 from src.core.config import settings
 from src.core.models import GraphState, TaskObject, TaskStatus
+from src.core.logging_config import current_task_id
 from src.graph.workflow import create_graph
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langchain_core.messages import HumanMessage, AIMessage
@@ -127,6 +128,7 @@ async def run_worker():
                             "overseer_invocation_count": 0
                         }
                         
+                        current_task_id.set(msg_id)
                         logger.info(f"Executing task: {task.intent} in workspace {workspace_id}")
                         
                         config = {"configurable": {"thread_id": str(workspace_id)}}

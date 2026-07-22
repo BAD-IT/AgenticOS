@@ -160,6 +160,21 @@ The main worker reads the directive and resumes with the newly enforced strategy
 - Do **not** install compilers or runtimes (like Node.js or `g++`) in the core Orchestrator container.
 - Do **not** provide the runner container with network access to the database or internal API.
 
+### 3.4 Async Tool Execution with Per-Tool Timeout
+
+**What:** Every tool invocation runs in a background thread (`asyncio.to_thread`) with an independent timeout guard (`asyncio.wait_for`).
+
+**Why:** Synchronous tool calls (e.g., `run_in_sandbox` using `time.sleep` polling) block the async event loop, preventing concurrent operations and causing cascading task timeouts.
+
+**Where:** `node_tool_execution` in the LangGraph workflow.
+
+**What Not:**
+
+- Do **not** let a single slow tool consume the entire task timeout budget.
+- Do **not** run blocking I/O directly on the async event loop.
+
+**Configuration:** `TOOL_TIMEOUT_SECONDS = 60` (per tool call, independent of the global `TASK_TIMEOUT_SECONDS = 300`).
+
 ## 4. System Maintenance & Autonomy
 
 ### 4.1 Strict Idle Mode & Experience Consolidation
@@ -195,6 +210,10 @@ The Skill is embedded via `pgvector` and saved in the database.
 
 When a similar intent arrives days later, the Skill is retrieved and injected into the prompt, allowing the agent to solve the task instantly on the first try.
 
+**6.Intelligent Filter:**
+
+Skill generation is only triggered for meaningful tasks — those that used tools or had >3 messages of multi-step interaction. Simple Q&A exchanges (e.g., "hello", "what time is it") are skipped to avoid wasting LLM compute on trivial abstractions.
+
 ### 4.2 Targeted File Patching
 
 **What:** A methodology restricting the agent from generating full-file rewrites when making code or text modifications.
@@ -206,6 +225,24 @@ When a similar intent arrives days later, the Skill is retrieved and injected in
 **What Not:**
 
 - Do **not** allow the LLM to output 500 lines of code just to change a variable name.
+
+### 4.3 Production Hardening & Observability
+
+**What:** A set of infrastructure-level practices ensuring all containers are reliable, observable, and self-healing.
+
+**Why:** Without structured logging, health probes, and restart policies, debugging multi-container failures requires manual inspection of each container's stdout — an approach that does not scale.
+
+**Where:** `docker-compose.yml`, `logging_config.py`, and the FastAPI API layer.
+
+**Components:**
+
+1. **Structured JSON Logging** — All log files use `JSONFormatter` with automatic `task_id` correlation via `contextvars.ContextVar`. Every log entry from worker, orchestrator, and sandbox includes a machine-parseable JSON object with `ts`, `level`, `logger`, `msg`, and `task_id` fields. Human-readable stream output is also provided for `docker logs`.
+
+2. **Health Check Endpoint** (`GET /api/v1/health`) — Verifies DB connectivity and returns `{"status": "healthy", "db": "connected"}` or HTTP 503. Used by Docker's native `healthcheck` directive for automatic container restarts.
+
+3. **Container Restart Policies** — All services use `restart: unless-stopped` to auto-recover from crashes without manual intervention.
+
+4. **Unbuffered Output** — `PYTHONUNBUFFERED=1` on all containers ensures logs appear immediately in `docker logs` without Python's default stdout buffering delay.
 
 ## 5. User Interface & Workspace Management
 
@@ -240,6 +277,26 @@ When a similar intent arrives days later, the Skill is retrieved and injected in
 
 - Do **not** permanently delete old sessions from the database when using `/session delete` (unless explicitly purged); they must remain anonymized for the Idle Mode Experience Consolidation.
 - Do **not** carry over context automatically when switching to a new workspace; new workspaces must start with zero history to conserve tokens.
+
+### 5.3 Thinking Block (LLM Reasoning Visualization)
+
+**What:** A collapsible, real-time visualization of the LLM's reasoning process rendered inline in the chat area.
+
+**Why:** Modern AI interfaces (Claude, ChatGPT) show users what the model is thinking. This builds trust, provides transparency, and helps users understand why the agent made specific decisions (tool selection, clarification requests).
+
+**Where:** The center chat panel, rendered via the LLM stream WebSocket (`/api/v1/stream/llm`) and the debug trace WebSocket (`/api/v1/stream/debug`).
+
+**Lifecycle:**
+
+1. **Thinking Start** — A purple-bordered, glowing block appears with a spinning clock icon and "Thinking..." label.
+2. **Token Preview** — As the LLM generates tokens, a live preview appears inside the thinking block (CLARIFICATION_NEEDED XML is automatically suppressed).
+3. **Tool Steps** — When debug trace events arrive for `Node_Tool_Execution`, `Node_Review`, or `Node_Result`, colored step indicators are injected into the thinking block.
+4. **Thinking End** — The block collapses, shows a summary label (e.g., "Decided to use tool: run_in_sandbox") and elapsed time. Users can click to expand and inspect the full reasoning trace.
+
+**What Not:**
+
+- Do **not** display raw XML, JSON, or internal protocol tags to the user.
+- Do **not** leave thinking blocks open indefinitely — they must auto-collapse when the task reaches a terminal state.
 
 ## 6. External Connectivity & Integrations
 

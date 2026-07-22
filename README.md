@@ -1,6 +1,6 @@
 # Agentic OS
 
-**Agentic OS** is an autonomous, LangGraph-driven, Zero-Trust operating system running locally via OrbStack. It is designed to safely execute complex AI workflows by isolating the Orchestrator from the Artifact Runner environment, utilizing a robust 11-Queue PostgreSQL topology and a beautiful `dwm`-style Tiling Web UI.
+**Agentic OS** is an autonomous, LangGraph-driven, Zero-Trust operating system running locally via OrbStack. It is designed to safely execute complex AI workflows by isolating the Orchestrator from the Artifact Runner environment, utilizing a robust PostgreSQL-backed queue topology and a beautiful `dwm`-style Tiling Web UI.
 
 ## 🧠 What makes this an "Agentic OS" and not just an Agent Harness?
 
@@ -8,19 +8,20 @@ Most AI agents (like AutoGPT or standard LangChain wrappers) are **"harnesses"**
 
 We are building a true **Agentic Operating System**, defined by core OS principles:
 1. **The Kernel (State Machine)**: Instead of arbitrary prompt loops, our control flow is a deterministic, LangGraph-driven state machine enforcing strict Pydantic data contracts.
-2. **The Scheduler (Background Worker)**: The API does not block to run AI tasks. It pushes to a PostgreSQL queue. A decoupled background worker daemon continuously polls and processes tasks asynchronously.
-3. **Memory Management (PostgreSQL)**: The entire system state, cognitive traces, and queues are persisted in a robust database, allowing for system reboots without memory loss.
+2. **The Scheduler (Background Worker)**: The API does not block to run AI tasks. It pushes to a PostgreSQL queue. A decoupled background worker daemon continuously polls and processes tasks asynchronously, with per-tool timeout isolation.
+3. **Memory Management (PostgreSQL)**: The entire system state, cognitive traces, and queues are persisted in a robust database, allowing for system reboots without memory loss. `pgvector` skills are generated only for meaningful multi-step tasks.
 4. **Sandboxing (Zero-Trust)**: The orchestrator never executes untrusted code. Code is executed in an isolated, network-less `artifact_runner` Docker container. Data moves strictly through `/workspace/inbox` and `/workspace/outbox`.
-5. **Observability (System Monitor)**: Real-time WebSockets stream the system's "Cognitive Trace", logs, and queue metrics to the WebUI, functioning like an OS task manager (`htop`).
+5. **Observability (System Monitor)**: Structured JSON logging with task ID correlation across all containers. Real-time WebSockets stream the "Cognitive Trace", and a modern collapsible Thinking Block shows the LLM's reasoning process in the chat UI.
 
 ---
 
 ## 🚀 Key Features
 
 *   **Zero-Trust Architecture**: Sandboxed executions. The `artifact_runner` Docker container has absolutely no network access and strict CPU/Memory limits. File exchange occurs strictly through `/workspace/inbox` and `/workspace/outbox`.
-*   **LangGraph Engine**: Deeply orchestrated cognitive workflows built natively on `langgraph`, enforcing strict Pydantic v2 data contracts.
-*   **SRE & Experience Consolidation**: Natively triages fatal errors, triggers idle garbage collection, and generates `pgvector` Skill abstractions to learn from multi-step workflows.
-*   **Tiling Web UI**: A highly responsive, mouse and keyboard-driven interface featuring a CLI interceptor, Dynamic Workspaces (Alt+1 to Alt+0), and a live **Cognitive Trace** feed.
+*   **LangGraph Engine**: Deeply orchestrated cognitive workflows built natively on `langgraph`, enforcing strict Pydantic v2 data contracts. Async tool execution with per-tool timeout isolation.
+*   **SRE & Experience Consolidation**: Natively triages fatal errors, triggers idle garbage collection, and generates `pgvector` Skill abstractions — only for meaningful multi-step tasks.
+*   **Tiling Web UI**: A highly responsive interface featuring Dynamic Workspaces, a live **Cognitive Trace** feed, and a modern collapsible **Thinking Block** that shows the LLM's reasoning process in real-time.
+*   **Production Hardening**: Health check endpoints, container restart policies, structured JSON logging with task ID correlation, and `PYTHONUNBUFFERED` for reliable log visibility.
 
 ---
 

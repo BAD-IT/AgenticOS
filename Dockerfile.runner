@@ -13,4 +13,5 @@ COPY src /app/src
 
 # Keep the container alive by running the polling daemon
 ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 CMD ["python", "-m", "src.tools.runner_daemon"]
