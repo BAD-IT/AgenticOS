@@ -1,3 +1,9 @@
+const escapeHtml = (str) => {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+};
+
 const cliInput = document.getElementById('cli-input');
 const chatHistory = document.getElementById('chat-history');
 const terminalFeed = document.getElementById('terminal-feed');
@@ -107,7 +113,7 @@ cliInput.addEventListener('keydown', (e) => {
                 loader.querySelector('.loader-text').innerText = 'Agent is thinking...';
             }
             
-            fetch('/api/v1/tasks/submit', {
+            fetch(`/api/v1/tasks/submit?workspace_id=${currentWorkspace}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -162,6 +168,7 @@ const switchWorkspace = (wsNum) => {
     loadWorkspaceHistory(wsNum);
     fetchDebugTraces();
     lastLiveTaskId = null; // force a fresh task separator on the next live event for this workspace
+    liveDebugActive = false; // allow REST fetch for the new workspace
 };
 
 // Bind clicks to existing workspace tabs
@@ -328,8 +335,8 @@ if (settingsBtn && settingsModal) {
             for (const [key, val] of Object.entries(data)) {
                 html += `
                     <div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:5px;">
-                        <span style="color:#94a3b8">${key}</span>
-                        <span style="font-family:var(--font-mono);font-size:12px;">${val}</span>
+                        <span style="color:#94a3b8">${escapeHtml(key)}</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;">${escapeHtml(String(val))}</span>
                     </div>
                 `;
             }
@@ -355,7 +362,7 @@ if (settingsBtn && settingsModal) {
 const appendTelemetry = (icon, category, message, type = 'info', rawRow = null) => {
     const div = document.createElement('div');
     div.className = `telemetry-item ${type}`;
-    div.innerHTML = `<span class="icon">${icon}</span> <strong class="category">${category}:</strong> <span class="message">${message}</span>`;
+    div.innerHTML = `<span class="icon">${escapeHtml(icon)}</span> <strong class="category">${escapeHtml(category)}:</strong> <span class="message">${escapeHtml(message)}</span>`;
     
     if (category.includes('File') || category.includes('DB') || category.includes('State')) {
         div.style.cursor = 'pointer';
@@ -395,7 +402,8 @@ const fetchDB = async () => {
                 keys.forEach(k => {
                     let val = row[k];
                     if (typeof val === 'object') val = JSON.stringify(val);
-                    html += `<td style="padding:5px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title='${val}'>${val}</td>`;
+                    const safeVal = escapeHtml(String(val));
+                    html += `<td style="padding:5px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${safeVal}">${safeVal}</td>`;
                 });
                 html += `</tr>`;
             });
@@ -484,6 +492,8 @@ const fetchDebugTraces = async () => {
     const debugFeed = document.getElementById('debug-feed');
     const cognitiveTrace = document.getElementById('cognitive-trace-feed');
     if (!debugFeed) return;
+    // Skip REST re-render while the WebSocket is actively streaming live events
+    if (liveDebugActive) return;
     
     try {
         const res = await fetch(`/api/v1/debug/traces/${currentWorkspace}`);
@@ -580,6 +590,7 @@ if (clearDebugBtn) {
     clearDebugBtn.addEventListener('click', () => {
         const debugFeed = document.getElementById('debug-feed');
         if (debugFeed) debugFeed.innerHTML = '<div style="color: #64748b; font-style: italic;">Cleared. Awaiting state events...</div>';
+        liveDebugActive = false;
     });
 }
 
@@ -631,6 +642,7 @@ connectLogSocket();
 // --- DEBUG TRACE WEBSOCKET ---
 let debugSocket;
 let lastLiveTaskId = null;
+let liveDebugActive = false;
 const buildTaskSeparator = (taskId) => {
     const shortId = (taskId || 'unknown').split('-')[0];
     const sep = document.createElement('div');
@@ -663,6 +675,7 @@ const connectDebugSocket = () => {
             
             const isNewTask = data.task_id !== lastLiveTaskId;
             lastLiveTaskId = data.task_id;
+            liveDebugActive = true;
             
             // 1. Update Left Panel (Live Pulse)
             if (traceFeed) {
@@ -717,7 +730,3 @@ const connectDebugSocket = () => {
 };
 connectDebugSocket();
 
-document.getElementById('clear-debug-btn')?.addEventListener('click', () => {
-    const df = document.getElementById('debug-feed');
-    if(df) df.innerHTML = '<div style="color: #64748b; font-style: italic;">Awaiting state events...</div>';
-});
