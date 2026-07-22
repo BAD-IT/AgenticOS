@@ -10,6 +10,8 @@ from src.core.models import TaskObject
 from src.core.config import settings
 from src.core.logging_config import api_logger
 from src.api.websockets import router as ws_router
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,6 +25,26 @@ app.include_router(ws_router)
 
 # Resolve DB via central settings
 DB_URL = settings.DATABASE_URL
+
+# --- API Key Authentication Middleware ---
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        # Skip auth if no API key is configured
+        if not settings.API_KEY:
+            return await call_next(request)
+        # Skip auth for static files, root, and WebSocket upgrades
+        path = request.url.path
+        if path.startswith("/ui") or path == "/" or path == "/docs" or path == "/openapi.json":
+            return await call_next(request)
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+        # Check API key
+        provided_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+        if provided_key != settings.API_KEY:
+            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
+        return await call_next(request)
+
+app.add_middleware(APIKeyMiddleware)
 
 # Mount the static UI
 app.mount("/ui", StaticFiles(directory="ui"), name="ui")
@@ -42,17 +64,60 @@ def get_settings():
         "OUTBOX_DIR": settings.OUTBOX_DIR
     }
 
+BLOCKED_PATTERNS = [
+    "ignore previous instructions", "ignore all instructions",
+    "system prompt", "reveal your prompt", "bypass security",
+    "DROP TABLE", "DELETE FROM", "; --", "' OR 1=1",
+]
+
+def check_security_guardrails(text: str) -> str:
+    """Returns a rejection reason if the input matches blocked patterns, else empty string."""
+    text_lower = text.lower()
+    for pattern in BLOCKED_PATTERNS:
+        if pattern.lower() in text_lower:
+            return f"Input blocked: matches security filter '{pattern}'"
+    return ""
+
 @app.post("/api/v1/tasks/submit", status_code=status.HTTP_202_ACCEPTED)
-async def submit_task(task: TaskObject, request: Request, workspace_id: int = 1):
-    """Agnostic REST Ingress: Validates payload and pushes to PostgreSQL."""
+async def submit_task(task: TaskObject, request: Request, workspace_id: int = 1, priority: str = "NORMAL", webhook_url: str = None, parent_task_id: str = None):
+    """Agnostic REST Ingress: Validates payload, checks security, and pushes to PostgreSQL."""
+    valid_priorities = ("URGENT", "NORMAL", "LOW")
+    if priority.upper() not in valid_priorities:
+        raise HTTPException(status_code=400, detail=f"Invalid priority. Must be one of: {valid_priorities}")
+    
+    # Semantic security guardrails
+    rejection = check_security_guardrails(task.intent)
+    if rejection:
+        raise HTTPException(status_code=422, detail=rejection)
+    
     try:
         async with request.app.state.pool.acquire() as conn:
             msg_id = str(uuid4())
             await conn.execute(
-                "INSERT INTO system_tasks (message_id, payload, status, workspace_id) VALUES ($1, $2, 'USER_INPUT', $3)",
-                msg_id, task.model_dump_json(), workspace_id
+                "INSERT INTO system_tasks (message_id, payload, status, workspace_id, priority, webhook_url, parent_task_id) VALUES ($1, $2, 'USER_INPUT', $3, $4, $5, $6)",
+                msg_id, task.model_dump_json(), workspace_id, priority.upper(), webhook_url, parent_task_id
             )
             return {"status": "accepted", "message_id": msg_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/tasks/{message_id}/cancel")
+async def cancel_task(message_id: str, request: Request):
+    """Cancel a pending or in-progress task."""
+    try:
+        async with request.app.state.pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT status FROM system_tasks WHERE message_id = $1", message_id)
+            if not row:
+                raise HTTPException(status_code=404, detail="Task not found")
+            if row['status'] in ('RESULT_OUTPUT', 'ERROR'):
+                raise HTTPException(status_code=409, detail=f"Task already finished (status: {row['status']})")
+            await conn.execute(
+                "UPDATE system_tasks SET status = 'ERROR', payload = payload || $2::jsonb WHERE message_id = $1",
+                message_id, json.dumps({"response": "Task cancelled by user."})
+            )
+        return {"status": "cancelled", "message_id": message_id}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -167,6 +232,12 @@ async def get_telemetry_queues(request: Request):
         return {"queues": counts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/tools")
+def list_tools():
+    """List all registered agent tools from the plugin registry."""
+    from src.tools.registry import tool_registry
+    return {"tools": tool_registry.list_tools()}
 
 @app.get("/api/v1/workspace/files")
 def get_workspace_files():

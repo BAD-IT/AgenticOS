@@ -21,16 +21,40 @@ from langchain_core.messages import HumanMessage
 
 from src.tools.file_io import read_file, write_file, patch_file
 from src.tools.sandbox_exec import run_in_sandbox
+from src.tools.web_tools import web_fetch, grep_workspace, http_request
+from src.tools.registry import tool_registry
 from langchain_core.messages import ToolMessage
 
 TOOLS_MAP = {
     "read_file": read_file,
     "write_file": write_file,
     "patch_file": patch_file,
-    "run_in_sandbox": run_in_sandbox
+    "run_in_sandbox": run_in_sandbox,
+    "web_fetch": web_fetch,
+    "grep_workspace": grep_workspace,
+    "http_request": http_request
 }
 
-llm = ChatOllama(model=settings.LLM_MODEL, base_url=settings.OLLAMA_API_BASE).bind_tools(list(TOOLS_MAP.values()))
+# Register all tools with the global registry
+tool_registry.bulk_register(TOOLS_MAP)
+
+# Lazy LLM initialization — avoids crash if Ollama isn't running at import time
+_llm_instance = None
+_overseer_llm_instance = None
+
+def get_llm():
+    global _llm_instance
+    if _llm_instance is None:
+        _llm_instance = ChatOllama(model=settings.LLM_MODEL, base_url=settings.OLLAMA_API_BASE).bind_tools(list(TOOLS_MAP.values()))
+    return _llm_instance
+
+def get_overseer_llm():
+    """Returns a plain LLM (no tools) for the Overseer. Uses REVIEW_MODEL if configured, else LLM_MODEL."""
+    global _overseer_llm_instance
+    if _overseer_llm_instance is None:
+        model = getattr(settings, 'REVIEW_MODEL', None) or settings.LLM_MODEL
+        _overseer_llm_instance = ChatOllama(model=model, base_url=settings.OLLAMA_API_BASE)
+    return _overseer_llm_instance
 
 from src.core.logging_config import orchestrator_logger as logger
 
@@ -81,11 +105,38 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
     msgs.extend(messages)
     
     try:
-        response = llm.invoke(msgs)
+        # Stream tokens for real-time UI display
+        full_content = ""
+        response = None
+        stream_conn = None
+        try:
+            stream_conn = await asyncpg.connect(DB_URL)
+            for chunk in get_llm().stream(msgs):
+                token = getattr(chunk, "content", "") or ""
+                if token:
+                    full_content += token
+                    # Broadcast token via pg_notify for the streaming WebSocket
+                    await stream_conn.execute(
+                        "SELECT pg_notify('llm_stream_channel', $1)",
+                        json.dumps({"token": token, "task_id": current_task.task_id if current_task else ""})
+                    )
+                # Capture tool calls from the last chunk
+                if getattr(chunk, "tool_calls", None):
+                    response = chunk
+        finally:
+            if stream_conn:
+                await stream_conn.close()
+        
+        # If we got tool calls, use the chunk that had them; otherwise build an AIMessage
+        if response is None:
+            from langchain_core.messages import AIMessage as _AIMessage
+            response = _AIMessage(content=full_content)
+        elif not getattr(response, "content", ""):
+            response.content = full_content
+        
         # Check if the LLM is requesting clarification
         content = getattr(response, "content", "") or ""
         if "<CLARIFICATION_NEEDED>" in content and "</CLARIFICATION_NEEDED>" in content:
-            # Mark the task as requiring clarification
             if current_task:
                 current_task.status = TaskStatus.REQUIRES_CLARIFICATION
             return {"messages": [response], "current_task": current_task}
@@ -169,7 +220,7 @@ def node_review(state: GraphState) -> Dict[str, Any]:
     failure_context = "\n".join(recent_history)
     
     # Use a plain LLM (no tools) for the Overseer analysis
-    overseer_llm = ChatOllama(model=settings.LLM_MODEL, base_url=settings.OLLAMA_API_BASE)
+    overseer_llm = get_overseer_llm()
     overseer_prompt = SystemMessage(content=(
         "You are the Agentic OS Overseer (Constitution Node). You do NOT solve the user's task.\n"
         "Your role is to analyze WHY the worker agent failed repeatedly and inject a mandatory "

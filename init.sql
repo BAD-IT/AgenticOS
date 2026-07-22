@@ -2,14 +2,21 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TYPE task_status AS ENUM ('USER_INPUT', 'TASK', 'PENDING', 'REVIEW', 'REQUIRES_CLARIFICATION', 'RESULT_OUTPUT', 'ERROR');
 
+CREATE TYPE task_priority AS ENUM ('URGENT', 'NORMAL', 'LOW');
+
 CREATE TABLE IF NOT EXISTS system_tasks (
     message_id VARCHAR(255) PRIMARY KEY,
     payload JSONB NOT NULL,
     status task_status NOT NULL DEFAULT 'USER_INPUT',
+    priority task_priority NOT NULL DEFAULT 'NORMAL',
     workspace_id INT DEFAULT 1,
+    parent_task_id VARCHAR(255) DEFAULT NULL,
+    webhook_url TEXT DEFAULT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_tasks_priority_status ON system_tasks (priority, status, created_at);
 
 CREATE TABLE IF NOT EXISTS system_notifications (
     message_id VARCHAR(255) PRIMARY KEY,

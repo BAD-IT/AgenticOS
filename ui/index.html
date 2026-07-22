@@ -20,7 +20,10 @@
     </div>
     <div id="flex-container">
         <div id="left-panel" class="panel glass" style="width: 25%;">
-            <div class="panel-header">Live Cognitive Trace</div>
+            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <span id="left-panel-title">Live Cognitive Trace</span>
+                <button id="canvas-toggle-btn" title="Toggle Canvas Mode" style="background:none; border:1px solid #334155; color:#94a3b8; padding:2px 8px; border-radius:4px; cursor:pointer; font-size:11px;">Canvas</button>
+            </div>
             <div id="system-state-content" style="padding: 15px; font-size: 13px; display: flex; flex-direction: column; height: calc(100% - 35px);">
                 <div style="margin-bottom: 15px; flex-shrink: 0;">
                     <div style="color:#94a3b8; margin-bottom: 5px;">Active Task</div>
@@ -30,6 +33,9 @@
                 <div id="cognitive-trace-feed" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px; font-family: var(--font-mono); font-size: 11px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
                     <div style="color: #64748b; font-style: italic;">No active trace...</div>
                 </div>
+            </div>
+            <div id="canvas-content" style="display:none; height: calc(100% - 35px); padding:0;">
+                <iframe id="canvas-iframe" style="width:100%; height:100%; border:none; background:#0f172a; border-radius:6px;" sandbox="allow-scripts allow-same-origin"></iframe>
             </div>
         </div>
         

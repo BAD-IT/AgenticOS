@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+import datetime
 import asyncpg
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from src.core.config import settings
@@ -77,7 +78,6 @@ async def stream_chat(websocket: WebSocket):
                     payload
                 )
             if row:
-                import datetime
                 data = dict(row)
                 # Ensure JSON-serializable
                 for k, v in data.items():
@@ -103,6 +103,32 @@ async def stream_chat(websocket: WebSocket):
     finally:
         if conn:
             await conn.remove_listener("system_tasks_channel", handle_chat_update)
+            await pool.release(conn)
+
+@router.websocket("/api/v1/stream/llm")
+async def stream_llm_tokens(websocket: WebSocket):
+    """Streams LLM token-by-token output to the UI for real-time display."""
+    await websocket.accept()
+    conn = None
+
+    async def handle_llm_token(connection, pid, channel, payload):
+        try:
+            await websocket.send_text(payload)
+        except Exception:
+            pass
+
+    try:
+        pool = websocket.app.state.pool
+        conn = await pool.acquire()
+        await conn.add_listener("llm_stream_channel", handle_llm_token)
+
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if conn:
+            await conn.remove_listener("llm_stream_channel", handle_llm_token)
             await pool.release(conn)
 
 @router.websocket("/api/v1/stream/logs/{log_name}")

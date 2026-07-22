@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import re
+import traceback
+import urllib.request
 import asyncpg
 from src.core.config import settings
 from src.core.models import GraphState, TaskObject, TaskStatus
@@ -9,6 +11,7 @@ from src.graph.workflow import create_graph
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langchain_core.messages import HumanMessage, AIMessage
 from psycopg_pool import AsyncConnectionPool
+from src.maintenance.idle_daemon import run_idle_daemon
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 import json
@@ -41,6 +44,16 @@ def safe_serialize(obj):
     except Exception:
         return str(obj)
 
+async def _fire_webhook(url: str, message_id: str, payload: str, status: str):
+    """Fire-and-forget outbound webhook notification on task completion."""
+    try:
+        data = json.dumps({"message_id": message_id, "payload": payload, "status": status}).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        urllib.request.urlopen(req, timeout=10)
+        logger.info(f"Webhook delivered to {url} for task {message_id}")
+    except Exception as e:
+        logger.warning(f"Webhook delivery failed for {url}: {e}")
+
 async def run_worker():
     pool = await asyncpg.create_pool(settings.DATABASE_URL)
     
@@ -55,6 +68,9 @@ async def run_worker():
     
     await listen_conn.add_listener("system_tasks_channel", _on_notify)
     
+    # Launch the idle daemon as a background task
+    asyncio.create_task(run_idle_daemon(pool))
+    
     async with AsyncPostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
         await checkpointer.setup()
         app = create_graph(checkpointer)
@@ -64,7 +80,7 @@ async def run_worker():
             try:
                 async with pool.acquire() as conn:
                     row = await conn.fetchrow(
-                        "SELECT message_id, payload, workspace_id FROM system_tasks WHERE status = 'USER_INPUT' ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED"
+                        "SELECT message_id, payload, workspace_id FROM system_tasks WHERE status = 'USER_INPUT' ORDER BY priority ASC, created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED"
                     )
                     if row:
                         msg_id = row['message_id']
@@ -172,8 +188,14 @@ async def run_worker():
                         else:
                             await conn.execute("UPDATE system_tasks SET status = 'RESULT_OUTPUT' WHERE message_id = $1", msg_id)
                         
+                        # --- Outbound Webhook ---
+                        row_after = await conn.fetchrow(
+                            "SELECT webhook_url, payload, status FROM system_tasks WHERE message_id = $1", msg_id
+                        )
+                        if row_after and row_after['webhook_url']:
+                            asyncio.create_task(_fire_webhook(row_after['webhook_url'], msg_id, row_after['payload'], row_after['status']))
+                        
             except Exception as e:
-                import traceback
                 logger.error(f"Worker error: {e}")
                 logger.error(traceback.format_exc())
                 # Never leave a claimed task stuck at PENDING forever - surface the failure instead.
