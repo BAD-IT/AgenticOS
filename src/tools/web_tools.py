@@ -1,6 +1,7 @@
+import json
 import os
 import re
-import subprocess
+import urllib.request
 from pathlib import Path
 from langchain_core.tools import tool
 from src.core.config import settings
@@ -13,7 +14,6 @@ WORKSPACE_OUTBOX = Path(settings.OUTBOX_DIR).resolve()
 def web_fetch(url: str) -> str:
     """Fetches the text content of a URL. Use for reading web pages, APIs, or downloading data."""
     try:
-        import urllib.request
         req = urllib.request.Request(url, headers={"User-Agent": "AgenticOS/1.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
             content = resp.read().decode("utf-8", errors="replace")
@@ -57,9 +57,6 @@ def grep_workspace(pattern: str, directory: str = "outbox") -> str:
 def http_request(url: str, method: str = "GET", body: str = "", headers: str = "") -> str:
     """Makes an HTTP request. method: GET/POST/PUT/DELETE. headers: JSON string of headers. body: request body for POST/PUT."""
     try:
-        import urllib.request
-        import json
-        
         req_headers = {"User-Agent": "AgenticOS/1.0", "Content-Type": "application/json"}
         if headers:
             try:

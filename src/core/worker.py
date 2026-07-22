@@ -10,11 +10,8 @@ from src.core.models import GraphState, TaskObject, TaskStatus
 from src.graph.workflow import create_graph
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langchain_core.messages import HumanMessage, AIMessage
-from psycopg_pool import AsyncConnectionPool
 from src.maintenance.idle_daemon import run_idle_daemon
 
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-import json
 original_dump_metadata = AsyncPostgresSaver._dump_metadata
 def patched_dump_metadata(self, metadata):
     try:
@@ -44,12 +41,16 @@ def safe_serialize(obj):
     except Exception:
         return str(obj)
 
-async def _fire_webhook(url: str, message_id: str, payload: str, status: str):
+def _fire_webhook_sync(url: str, message_id: str, payload: str, task_status: str):
+    """Blocking webhook POST — called via asyncio.to_thread to avoid blocking the event loop."""
+    data = json.dumps({"message_id": message_id, "payload": payload, "status": task_status}).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+    urllib.request.urlopen(req, timeout=10)
+
+async def _fire_webhook(url: str, message_id: str, payload: str, task_status: str):
     """Fire-and-forget outbound webhook notification on task completion."""
     try:
-        data = json.dumps({"message_id": message_id, "payload": payload, "status": status}).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-        urllib.request.urlopen(req, timeout=10)
+        await asyncio.to_thread(_fire_webhook_sync, url, message_id, payload, task_status)
         logger.info(f"Webhook delivered to {url} for task {message_id}")
     except Exception as e:
         logger.warning(f"Webhook delivery failed for {url}: {e}")

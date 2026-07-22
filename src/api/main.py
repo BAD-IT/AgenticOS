@@ -1,5 +1,5 @@
-import os
 import json
+import re
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.staticfiles import StaticFiles
@@ -59,7 +59,7 @@ def get_settings():
     return {
         "LLM_MODEL": settings.LLM_MODEL,
         "OLLAMA_API_BASE": settings.OLLAMA_API_BASE,
-        "DATABASE_URL": settings.DATABASE_URL.replace(settings.DATABASE_URL.split('@')[0].split('//')[1], "****:****"),
+        "DATABASE_URL": re.sub(r'://[^@]+@', '://****:****@', settings.DATABASE_URL),
         "INBOX_DIR": settings.INBOX_DIR,
         "OUTBOX_DIR": settings.OUTBOX_DIR
     }
@@ -236,6 +236,7 @@ async def get_telemetry_queues(request: Request):
 @app.get("/api/v1/tools")
 def list_tools():
     """List all registered agent tools from the plugin registry."""
+    import src.graph.workflow  # noqa: F401 — ensures TOOLS_MAP is bulk-registered
     from src.tools.registry import tool_registry
     return {"tools": tool_registry.list_tools()}
 

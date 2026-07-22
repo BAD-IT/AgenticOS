@@ -1,6 +1,6 @@
-import os
 import json
 import hashlib
+import asyncio
 import asyncpg
 from typing import Dict, Any
 from langgraph.graph import StateGraph, END
@@ -108,29 +108,34 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
         # Stream tokens for real-time UI display
         full_content = ""
         response = None
-        stream_conn = None
+        task_id = current_task.task_id if current_task else ""
+        stream_conn = await asyncpg.connect(DB_URL)
         try:
-            stream_conn = await asyncpg.connect(DB_URL)
-            for chunk in get_llm().stream(msgs):
-                token = getattr(chunk, "content", "") or ""
-                if token:
-                    full_content += token
-                    # Broadcast token via pg_notify for the streaming WebSocket
-                    await stream_conn.execute(
-                        "SELECT pg_notify('llm_stream_channel', $1)",
-                        json.dumps({"token": token, "task_id": current_task.task_id if current_task else ""})
-                    )
-                # Capture tool calls from the last chunk
-                if getattr(chunk, "tool_calls", None):
-                    response = chunk
+            # LangChain .stream() is synchronous — collect chunks via to_thread
+            # to avoid blocking the event loop.
+            def _collect_stream():
+                nonlocal full_content, response
+                for chunk in get_llm().stream(msgs):
+                    token = getattr(chunk, "content", "") or ""
+                    if token:
+                        full_content += token
+                    if getattr(chunk, "tool_calls", None):
+                        response = chunk
+
+            await asyncio.to_thread(_collect_stream)
+
+            # Broadcast the assembled text as a single notification
+            if full_content:
+                await stream_conn.execute(
+                    "SELECT pg_notify('llm_stream_channel', $1)",
+                    json.dumps({"token": full_content, "task_id": task_id})
+                )
         finally:
-            if stream_conn:
-                await stream_conn.close()
+            await stream_conn.close()
         
         # If we got tool calls, use the chunk that had them; otherwise build an AIMessage
         if response is None:
-            from langchain_core.messages import AIMessage as _AIMessage
-            response = _AIMessage(content=full_content)
+            response = AIMessage(content=full_content)
         elif not getattr(response, "content", ""):
             response.content = full_content
         
@@ -273,7 +278,7 @@ async def node_result(state: GraphState) -> Dict[str, Any]:
             finally:
                 await conn.close()
         except Exception as e:
-            print(f"Error saving skill: {e}")
+            logger.error(f"Error saving skill: {e}")
             
         return {
             "messages": [SystemMessage(content="Task completed and experience saved to pgvector.")]
