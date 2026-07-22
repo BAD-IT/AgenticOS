@@ -33,6 +33,8 @@ def safe_serialize(obj):
             return [safe_serialize(i) for i in obj]
         elif isinstance(obj, dict):
             return {k: safe_serialize(v) for k, v in obj.items()}
+        elif isinstance(obj, (int, float, bool, type(None))):
+            return obj
         else:
             return str(obj)
     except Exception:
@@ -52,7 +54,7 @@ async def run_worker():
             try:
                 async with pool.acquire() as conn:
                     row = await conn.fetchrow(
-                        "SELECT message_id, payload, workspace_id FROM system_tasks WHERE status = 'USER_INPUT' ORDER BY created_at ASC LIMIT 1"
+                        "SELECT message_id, payload, workspace_id FROM system_tasks WHERE status = 'USER_INPUT' ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED"
                     )
                     if row:
                         msg_id = row['message_id']
@@ -99,10 +101,12 @@ async def run_worker():
                             await asyncio.wait_for(_run_graph(), timeout=settings.TASK_TIMEOUT_SECONDS)
                         except asyncio.TimeoutError:
                             logger.error(f"Task {msg_id} timed out after {settings.TASK_TIMEOUT_SECONDS}s.")
-                            await conn.execute(
-                                "UPDATE system_tasks SET status = 'ERROR', payload = payload || $2::jsonb WHERE message_id = $1",
-                                msg_id, json.dumps({"response": f"Error: task timed out after {settings.TASK_TIMEOUT_SECONDS}s."})
-                            )
+                            # Use a fresh connection since the cancelled coroutine may have left conn in a bad state
+                            async with pool.acquire() as err_conn:
+                                await err_conn.execute(
+                                    "UPDATE system_tasks SET status = 'ERROR', payload = payload || $2::jsonb WHERE message_id = $1",
+                                    msg_id, json.dumps({"response": f"Error: task timed out after {settings.TASK_TIMEOUT_SECONDS}s."})
+                                )
                             continue
                         
                         # Update status and surface the final response text to the Chat UI

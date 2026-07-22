@@ -42,14 +42,14 @@ def get_settings():
     }
 
 @app.post("/api/v1/tasks/submit", status_code=status.HTTP_202_ACCEPTED)
-async def submit_task(task: TaskObject, request: Request):
+async def submit_task(task: TaskObject, request: Request, workspace_id: int = 1):
     """Agnostic REST Ingress: Validates payload and pushes to PostgreSQL."""
     try:
         async with request.app.state.pool.acquire() as conn:
             msg_id = str(uuid4())
             await conn.execute(
-                "INSERT INTO system_tasks (message_id, payload, status, workspace_id) VALUES ($1, $2, 'USER_INPUT', 1)",
-                msg_id, task.model_dump_json()
+                "INSERT INTO system_tasks (message_id, payload, status, workspace_id) VALUES ($1, $2, 'USER_INPUT', $3)",
+                msg_id, task.model_dump_json(), workspace_id
             )
             return {"status": "accepted", "message_id": msg_id}
     except Exception as e:
@@ -113,7 +113,7 @@ async def db_query(request: Request, table: str = "system_tasks", search: str = 
     try:
         async with request.app.state.pool.acquire() as conn:
             if search:
-                query = f"SELECT * FROM {table} WHERE payload ILIKE $1 ORDER BY created_at DESC LIMIT 50"
+                query = f"SELECT * FROM {table} WHERE payload::text ILIKE $1 ORDER BY created_at DESC LIMIT 50"
                 rows = await conn.fetch(query, f"%{search}%")
             else:
                 query = f"SELECT * FROM {table} ORDER BY created_at DESC LIMIT 50"

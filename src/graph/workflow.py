@@ -50,11 +50,13 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
                 # Format as pgvector string
                 emb_str = "[" + ",".join(str(x) for x in emb) + "]"
                 conn = await asyncpg.connect(DB_URL)
-                rows = await conn.fetch(
-                    "SELECT skill_abstraction FROM agent_skills ORDER BY embedding <-> $1 LIMIT 1",
-                    emb_str
-                )
-                await conn.close()
+                try:
+                    rows = await conn.fetch(
+                        "SELECT skill_abstraction FROM agent_skills ORDER BY embedding <-> $1 LIMIT 1",
+                        emb_str
+                    )
+                finally:
+                    await conn.close()
                 if rows:
                     skill_context = f"\n<RELEVANT_PAST_EXPERIENCE>\n{rows[0]['skill_abstraction']}\n</RELEVANT_PAST_EXPERIENCE>"
         except Exception as e:
@@ -140,11 +142,13 @@ async def node_result(state: GraphState) -> Dict[str, Any]:
         
         try:
             conn = await asyncpg.connect(DB_URL)
-            await conn.execute(
-                "INSERT INTO agent_skills (task_intent, skill_abstraction, embedding) VALUES ($1, $2, $3)",
-                skill["task_intent"], skill["skill_abstraction"], str(skill["embedding"])
-            )
-            await conn.close()
+            try:
+                await conn.execute(
+                    "INSERT INTO agent_skills (task_intent, skill_abstraction, embedding) VALUES ($1, $2, $3)",
+                    skill["task_intent"], skill["skill_abstraction"], str(skill["embedding"])
+                )
+            finally:
+                await conn.close()
         except Exception as e:
             print(f"Error saving skill: {e}")
             
