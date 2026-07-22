@@ -268,3 +268,122 @@ body, html {
     0%, 100% { opacity: 1; }
     50% { opacity: .5; }
 }
+
+/* --- Thinking Block --- */
+.thinking-block {
+    margin: 8px 0;
+    border-radius: 8px;
+    border: 1px solid rgba(167, 139, 250, 0.25);
+    background: rgba(15, 23, 42, 0.5);
+    overflow: hidden;
+    transition: border-color 0.3s ease;
+}
+.thinking-block.active {
+    border-color: rgba(167, 139, 250, 0.5);
+    animation: thinking-glow 2s ease-in-out infinite;
+}
+@keyframes thinking-glow {
+    0%, 100% { box-shadow: 0 0 4px rgba(167, 139, 250, 0.1); }
+    50% { box-shadow: 0 0 12px rgba(167, 139, 250, 0.25); }
+}
+
+.thinking-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    color: #a78bfa;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+.thinking-header:hover {
+    background: rgba(167, 139, 250, 0.08);
+}
+.thinking-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.thinking-block.active .thinking-icon svg {
+    animation: spin 1.5s linear infinite;
+}
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+.thinking-label {
+    flex: 1;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.thinking-duration {
+    color: #64748b;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.thinking-chevron {
+    display: flex;
+    align-items: center;
+    color: #64748b;
+    transition: transform 0.2s ease;
+}
+.thinking-block.collapsed .thinking-chevron {
+    transform: rotate(-90deg);
+}
+
+.thinking-content {
+    padding: 0 12px 10px 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+}
+.thinking-block.collapsed .thinking-content {
+    max-height: 0;
+    padding: 0 12px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.thinking-step {
+    font-size: 12px;
+    color: #94a3b8;
+    padding: 3px 0 3px 16px;
+    position: relative;
+    line-height: 1.5;
+}
+.thinking-step::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 9px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #475569;
+}
+.thinking-step-init::before { background: #a78bfa; }
+.thinking-step-tool::before { background: #38bdf8; }
+.thinking-step-tool-result {
+    color: #64748b;
+    font-size: 11px;
+    padding-left: 28px;
+    font-style: italic;
+}
+.thinking-step-tool-result::before { display: none; }
+.thinking-step-review::before { background: #fbbf24; }
+.thinking-step-result::before { background: #34d399; }
+.thinking-step-stream::before { background: #a78bfa; animation: pulse 1.5s infinite; }
+
+.thinking-step-preview {
+    color: #64748b;
+    font-size: 11px;
+    padding-left: 28px;
+    max-height: 80px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.thinking-step-preview::before { display: none; }

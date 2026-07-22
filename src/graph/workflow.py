@@ -110,6 +110,7 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
         response = None
         task_id = current_task.task_id if current_task else ""
         stream_conn = await asyncpg.connect(DB_URL)
+        token_buffer = []
         try:
             # LangChain .stream() is synchronous — collect chunks via to_thread
             # to avoid blocking the event loop.
@@ -119,17 +120,45 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
                     token = getattr(chunk, "content", "") or ""
                     if token:
                         full_content += token
+                        token_buffer.append(token)
                     if getattr(chunk, "tool_calls", None):
                         response = chunk
 
+            # Signal that thinking has started
+            await stream_conn.execute(
+                "SELECT pg_notify('llm_stream_channel', $1)",
+                json.dumps({"type": "thinking_start", "task_id": task_id})
+            )
+
             await asyncio.to_thread(_collect_stream)
 
-            # Broadcast the assembled text as a single notification
-            if full_content:
+            # Broadcast collected tokens for the chat stream
+            for tok in token_buffer:
                 await stream_conn.execute(
                     "SELECT pg_notify('llm_stream_channel', $1)",
-                    json.dumps({"token": full_content, "task_id": task_id})
+                    json.dumps({"token": tok, "task_id": task_id})
                 )
+
+            # Determine what the LLM decided to do and broadcast it
+            has_tool_calls = response is not None and getattr(response, "tool_calls", None)
+            has_clarification = "<CLARIFICATION_NEEDED>" in full_content
+            thinking_summary = "Formulating response..."
+            if has_tool_calls:
+                tc = response.tool_calls[0]
+                thinking_summary = f"Decided to use tool: {tc['name']}"
+            elif has_clarification:
+                thinking_summary = "Need more information from user"
+
+            await stream_conn.execute(
+                "SELECT pg_notify('llm_stream_channel', $1)",
+                json.dumps({
+                    "type": "thinking_end",
+                    "task_id": task_id,
+                    "summary": thinking_summary,
+                    "has_tool_call": bool(has_tool_calls),
+                    "has_clarification": has_clarification
+                })
+            )
         finally:
             await stream_conn.close()
         

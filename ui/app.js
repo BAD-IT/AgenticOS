@@ -734,6 +734,23 @@ const connectDebugSocket = () => {
             const isNewTask = data.task_id !== lastLiveTaskId;
             lastLiveTaskId = data.task_id;
             liveDebugActive = true;
+
+            // Inject thinking steps into the chat thinking block
+            if (data.node_name === 'Node_Tool_Execution') {
+                const msgs = diff.messages || [];
+                const toolMsg = msgs.find(m => m && m.name);
+                if (toolMsg) {
+                    addThinkingStep(`Tool: ${toolMsg.name}`, 'tool');
+                    const content = toolMsg.content || '';
+                    if (content.length > 0 && content.length < 200) {
+                        addThinkingStep(content, 'tool-result');
+                    }
+                }
+            } else if (data.node_name === 'Node_Review') {
+                addThinkingStep('Overseer reviewing strategy...', 'review');
+            } else if (data.node_name === 'Node_Result') {
+                addThinkingStep('Task finalized', 'result');
+            }
             
             // 1. Update Left Panel (Live Pulse)
             if (traceFeed) {
@@ -817,6 +834,44 @@ if (canvasToggleBtn) {
 // --- LLM STREAMING SOCKET ---
 let llmStreamSocket;
 let streamingMsgEl = null;
+let thinkingBlockEl = null;
+let thinkingContentEl = null;
+let thinkingStartTime = null;
+let thinkingSteps = [];
+
+const createThinkingBlock = () => {
+    const block = document.createElement('div');
+    block.className = 'thinking-block active';
+    block.innerHTML = `
+        <div class="thinking-header" onclick="this.parentElement.classList.toggle('collapsed')">
+            <span class="thinking-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+            </span>
+            <span class="thinking-label">Thinking...</span>
+            <span class="thinking-duration"></span>
+            <span class="thinking-chevron">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </span>
+        </div>
+        <div class="thinking-content"></div>
+    `;
+    return block;
+};
+
+const addThinkingStep = (text, type = 'step') => {
+    if (!thinkingContentEl) return;
+    const step = document.createElement('div');
+    step.className = `thinking-step thinking-step-${type}`;
+    step.textContent = text;
+    thinkingContentEl.appendChild(step);
+    thinkingContentEl.scrollTop = thinkingContentEl.scrollHeight;
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+};
+
 const connectLLMStream = () => {
     llmStreamSocket = new WebSocket(`ws://${location.host}/api/v1/stream/llm`);
     llmStreamSocket.onopen = () => resetBackoff('llm');
@@ -824,21 +879,69 @@ const connectLLMStream = () => {
     llmStreamSocket.onmessage = (e) => {
         try {
             const data = JSON.parse(e.data);
-            if (data.token) {
-                if (!streamingMsgEl) {
-                    streamingMsgEl = document.createElement('div');
-                    streamingMsgEl.className = 'chat-msg agent streaming';
-                    streamingMsgEl.textContent = '';
-                    chatHistory.appendChild(streamingMsgEl);
+
+            if (data.type === 'thinking_start') {
+                // Create a new thinking block in the chat
+                thinkingBlockEl = createThinkingBlock();
+                thinkingContentEl = thinkingBlockEl.querySelector('.thinking-content');
+                thinkingStartTime = Date.now();
+                thinkingSteps = [];
+                chatHistory.appendChild(thinkingBlockEl);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+                addThinkingStep('Analyzing request...', 'init');
+                return;
+            }
+
+            if (data.type === 'thinking_end') {
+                if (thinkingBlockEl) {
+                    const elapsed = thinkingStartTime ? ((Date.now() - thinkingStartTime) / 1000).toFixed(1) : '?';
+                    const label = thinkingBlockEl.querySelector('.thinking-label');
+                    const duration = thinkingBlockEl.querySelector('.thinking-duration');
+                    if (label) label.textContent = data.summary || 'Thought complete';
+                    if (duration) duration.textContent = `${elapsed}s`;
+                    thinkingBlockEl.classList.remove('active');
+                    thinkingBlockEl.classList.add('collapsed');
+                    addThinkingStep(data.summary || 'Done', 'result');
                 }
-                streamingMsgEl.textContent += data.token;
-                // If the LLM is emitting a <CLARIFICATION_NEEDED> block, suppress
-                // the raw XML — the clean question will arrive via the chat WebSocket.
-                if (streamingMsgEl.textContent.includes('<CLARIFICATION_NEEDED>')) {
-                    streamingMsgEl.remove();
-                    streamingMsgEl = null;
-                } else {
+                thinkingBlockEl = null;
+                thinkingContentEl = null;
+                thinkingStartTime = null;
+                return;
+            }
+
+            if (data.token) {
+                // If we have an active thinking block, accumulate tokens there
+                if (thinkingBlockEl && thinkingBlockEl.classList.contains('active')) {
+                    // Show token accumulation as a live preview inside thinking
+                    if (!streamingMsgEl) {
+                        addThinkingStep('Generating response...', 'stream');
+                        streamingMsgEl = document.createElement('div');
+                        streamingMsgEl.className = 'thinking-step thinking-step-preview';
+                        streamingMsgEl.textContent = '';
+                        thinkingContentEl.appendChild(streamingMsgEl);
+                    }
+                    streamingMsgEl.textContent += data.token;
+                    // Suppress clarification XML in the thinking preview too
+                    if (streamingMsgEl.textContent.includes('<CLARIFICATION_NEEDED>')) {
+                        streamingMsgEl.textContent = '(Requesting clarification from user...)';
+                    }
+                    thinkingContentEl.scrollTop = thinkingContentEl.scrollHeight;
                     chatHistory.scrollTop = chatHistory.scrollHeight;
+                } else {
+                    // No active thinking block — stream directly into chat
+                    if (!streamingMsgEl) {
+                        streamingMsgEl = document.createElement('div');
+                        streamingMsgEl.className = 'chat-msg agent streaming';
+                        streamingMsgEl.textContent = '';
+                        chatHistory.appendChild(streamingMsgEl);
+                    }
+                    streamingMsgEl.textContent += data.token;
+                    if (streamingMsgEl.textContent.includes('<CLARIFICATION_NEEDED>')) {
+                        streamingMsgEl.remove();
+                        streamingMsgEl = null;
+                    } else {
+                        chatHistory.scrollTop = chatHistory.scrollHeight;
+                    }
                 }
             }
         } catch(err) {}
@@ -851,6 +954,13 @@ const finalizeStream = () => {
     if (streamingMsgEl) {
         streamingMsgEl.classList.remove('streaming');
         streamingMsgEl = null;
+    }
+    // Collapse any open thinking block
+    if (thinkingBlockEl) {
+        thinkingBlockEl.classList.remove('active');
+        thinkingBlockEl.classList.add('collapsed');
+        thinkingBlockEl = null;
+        thinkingContentEl = null;
     }
 };
 
