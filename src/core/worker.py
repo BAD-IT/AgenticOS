@@ -198,6 +198,9 @@ async def run_worker():
                         if row_after and row_after['webhook_url']:
                             asyncio.create_task(_fire_webhook(row_after['webhook_url'], msg_id, row_after['payload'], row_after['status']))
                         
+            except asyncio.CancelledError:
+                logger.info("Worker received shutdown signal.")
+                raise
             except Exception as e:
                 logger.error(f"Worker error: {e}")
                 logger.error(traceback.format_exc())
@@ -216,7 +219,7 @@ async def run_worker():
             task_event.clear()
             try:
                 await asyncio.wait_for(task_event.wait(), timeout=settings.WORKER_FALLBACK_POLL_SECONDS)
-            except asyncio.TimeoutError:
+            except (asyncio.TimeoutError, asyncio.CancelledError):
                 pass
 
 if __name__ == "__main__":

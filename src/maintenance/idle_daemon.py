@@ -118,7 +118,14 @@ async def run_idle_daemon(pool: asyncpg.Pool):
                     except Exception as te:
                         logger.error(f"Diagnostics triage error: {te}")
                         
+        except asyncio.CancelledError:
+            logger.info("Idle Daemon received shutdown signal.")
+            return
         except Exception as e:
             logger.error(f"Idle Daemon error: {e}")
         
-        await asyncio.sleep(60)
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            logger.info("Idle Daemon shutting down.")
+            return

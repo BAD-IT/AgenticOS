@@ -507,7 +507,7 @@ setInterval(() => {
     if (document.getElementById('database-tab') && document.getElementById('database-tab').style.display === 'flex') {
         fetchDB();
     }
-    if (inboxTree) fetchWorkspaceFiles();
+    if (inboxTree && !document.hidden) fetchWorkspaceFiles();
 }, 10000);
 
 const updateQueueCounts = (counts) => {

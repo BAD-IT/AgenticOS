@@ -63,6 +63,12 @@ app.mount("/ui", StaticFiles(directory="ui"), name="ui")
 def read_root():
     return {"status": "ok", "message": "Agentic OS Orchestrator is running"}
 
+@app.get("/sw.js")
+def service_worker():
+    """Serve no-op service worker from root to prevent 404 spam."""
+    from starlette.responses import FileResponse
+    return FileResponse("ui/sw.js", media_type="application/javascript")
+
 @app.get("/api/v1/health")
 async def health_check(request: Request):
     """Liveness & readiness probe for Docker healthcheck and monitoring."""
