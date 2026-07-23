@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from uuid import uuid4
@@ -10,13 +11,22 @@ from src.core.models import TaskObject
 from src.core.config import settings
 from src.core.logging_config import api_logger
 from src.api.websockets import router as ws_router
+from src.core.worker import run_worker
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.pool = await get_db_pool(settings.DATABASE_URL)
+    # Launch the cognitive worker as a background task in the same event loop
+    worker_task = asyncio.create_task(run_worker())
+    api_logger.info("Background worker started inside orchestrator process.")
     yield
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
     await app.state.pool.close()
 
 api_logger.info("Initializing Agentic OS FastAPI Orchestrator")

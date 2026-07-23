@@ -244,6 +244,8 @@ Skill generation is only triggered for meaningful tasks — those that used tool
 
 4. **Unbuffered Output** — `PYTHONUNBUFFERED=1` on all containers ensures logs appear immediately in `docker logs` without Python's default stdout buffering delay.
 
+5. **Unified Process Model** — The cognitive worker runs as an `asyncio.create_task()` inside the FastAPI lifespan, eliminating the need for a separate worker container. The system operates with 3 containers: `db`, `orchestrator` (API + worker), and `artifact_runner`. The worker module (`src/core/worker.py`) remains a standalone async function that can be re-separated for horizontal scaling if needed.
+
 ## 5. User Interface & Workspace Management
 
 ### 5.1 Tiling Window Manager (The `dwm` Model)
