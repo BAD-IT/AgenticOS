@@ -111,7 +111,11 @@ async def run_worker():
                                     if hp.get('intent'):
                                         history_messages.append(HumanMessage(content=hp['intent']))
                                     if hp.get('response'):
-                                        history_messages.append(AIMessage(content=hp['response']))
+                                        resp = hp['response']
+                                        # Truncate long AI responses to keep context manageable
+                                        if len(resp) > 500:
+                                            resp = resp[:500] + "... [truncated]"
+                                        history_messages.append(AIMessage(content=resp))
                                 except (json.JSONDecodeError, KeyError):
                                     pass
                         except Exception as hist_err:
@@ -129,9 +133,14 @@ async def run_worker():
                         }
                         
                         current_task_id.set(msg_id)
-                        logger.info(f"Executing task: {task.intent} in workspace {workspace_id}")
+                        logger.info(f"[LIFECYCLE] Task claimed: msg_id={msg_id}, intent='{task.intent}', workspace={workspace_id}")
+                        logger.info(f"[LIFECYCLE] Chat history injected: {len(history_messages)} messages (including current)")
                         
-                        config = {"configurable": {"thread_id": str(workspace_id)}}
+                        # Use msg_id (unique per task) as thread_id — NOT workspace_id.
+                        # Workspace chat history is already injected from the DB above.
+                        # Using workspace_id would accumulate ALL messages from ALL tasks
+                        # in the LangGraph checkpoint, causing unbounded context growth.
+                        config = {"configurable": {"thread_id": msg_id}}
                         
                         last_response_text = None
                         
@@ -144,7 +153,7 @@ async def run_worker():
                                         "INSERT INTO system_debug_trace (task_id, node_name, state_diff) VALUES ($1, $2, $3)",
                                         msg_id, node_name, json.dumps(serialized_diff)
                                     )
-                                    logger.info(f"[{node_name}] Executed.")
+                                    logger.info(f"[LIFECYCLE] Node executed: {node_name}")
                                     
                                     # Capture the latest human-readable message so the Chat UI can render a real reply
                                     if node_name in ("Node_Worker_Thinking", "Node_Review", "Node_Tool_Execution"):
@@ -152,6 +161,13 @@ async def run_worker():
                                             content = getattr(m, "content", None)
                                             if content:
                                                 last_response_text = content
+                                                preview = content[:200].replace('\n', ' ')
+                                                logger.info(f"[LIFECYCLE] LLM response captured from {node_name}: '{preview}...'")
+                                    
+                                    # Log task status changes from graph nodes
+                                    task_in_diff = state_diff.get("current_task")
+                                    if task_in_diff:
+                                        logger.info(f"[LIFECYCLE] Task status after {node_name}: {getattr(task_in_diff, 'status', 'unknown')}")
                         
                         try:
                             await asyncio.wait_for(_run_graph(), timeout=settings.TASK_TIMEOUT_SECONDS)
@@ -166,6 +182,9 @@ async def run_worker():
                             continue
                         
                         # Check if the graph suspended for clarification
+                        logger.info(f"[LIFECYCLE] Graph finished. last_response_text={'set (' + str(len(last_response_text)) + ' chars)' if last_response_text else 'None'}")
+                        if last_response_text:
+                            logger.info(f"[LIFECYCLE] Full response: {last_response_text[:500]}")
                         clarification_question = None
                         if last_response_text and "<CLARIFICATION_NEEDED>" in last_response_text:
                             match = re.search(r'<CLARIFICATION_NEEDED>(.*?)</CLARIFICATION_NEEDED>', last_response_text, re.DOTALL)
@@ -181,14 +200,16 @@ async def run_worker():
                                 "UPDATE system_tasks SET status = 'REQUIRES_CLARIFICATION', payload = payload || $2::jsonb WHERE message_id = $1",
                                 msg_id, json.dumps({"clarification_question": clarification_question})
                             )
-                            logger.info(f"Task {msg_id} suspended for clarification: {clarification_question}")
+                            logger.info(f"[LIFECYCLE] Task {msg_id} → REQUIRES_CLARIFICATION: {clarification_question}")
                         # Update status and surface the final response text to the Chat UI
                         elif last_response_text:
+                            logger.info(f"[LIFECYCLE] Task {msg_id} → RESULT_OUTPUT (with response)")
                             await conn.execute(
                                 "UPDATE system_tasks SET status = 'RESULT_OUTPUT', payload = payload || $2::jsonb WHERE message_id = $1",
                                 msg_id, json.dumps({"response": last_response_text})
                             )
                         else:
+                            logger.warning(f"[LIFECYCLE] Task {msg_id} → RESULT_OUTPUT (NO response text captured!)")
                             await conn.execute("UPDATE system_tasks SET status = 'RESULT_OUTPUT' WHERE message_id = $1", msg_id)
                         
                         # --- Outbound Webhook ---

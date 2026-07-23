@@ -9,7 +9,12 @@ from src.core.models import GraphState, TaskStatus
 from src.maintenance.idle_daemon import generate_skill_from_task
 from src.core.config import settings
 
+import logging
+import time
+
+logger = logging.getLogger("orchestrator")
 DB_URL = settings.DATABASE_URL
+LLM_CALL_TIMEOUT = settings.LLM_CALL_TIMEOUT_SECONDS
 
 def hash_tool_call(tool_name: str, parameters: Dict[str, Any]) -> str:
     # Deterministic hash to prevent LLM tunnel vision loops
@@ -56,13 +61,11 @@ def get_overseer_llm():
         _overseer_llm_instance = ChatOllama(model=model, base_url=settings.OLLAMA_API_BASE)
     return _overseer_llm_instance
 
-from src.core.logging_config import orchestrator_logger as logger
-
 async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
     current_task = state.get("current_task")
     messages = state.get("messages", [])
     
-    logger.info(f"Orchestrator node_worker_thinking triggered for task: {current_task.intent if current_task else 'Unknown'}")
+    logger.info(f"[LIFECYCLE] node_worker_thinking START — intent='{current_task.intent if current_task else 'Unknown'}', messages={len(messages)}")
     
     # Retrieval Augmented Generation (RAG) for Skills
     skill_context = ""
@@ -130,7 +133,25 @@ async def node_worker_thinking(state: GraphState) -> Dict[str, Any]:
                 json.dumps({"type": "thinking_start", "task_id": task_id})
             )
 
-            await asyncio.to_thread(_collect_stream)
+            llm_start = time.monotonic()
+            try:
+                await asyncio.wait_for(
+                    asyncio.to_thread(_collect_stream),
+                    timeout=LLM_CALL_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                elapsed = time.monotonic() - llm_start
+                logger.error(f"[LIFECYCLE] LLM call timed out after {elapsed:.0f}s (limit={LLM_CALL_TIMEOUT}s)")
+                # Broadcast timeout to UI
+                await stream_conn.execute(
+                    "SELECT pg_notify('llm_stream_channel', $1)",
+                    json.dumps({"type": "thinking_end", "task_id": task_id, "summary": f"LLM call timed out after {LLM_CALL_TIMEOUT}s", "has_tool_call": False, "has_clarification": False})
+                )
+                await stream_conn.close()
+                return {"messages": [AIMessage(content=f"I'm sorry, my thinking took too long (>{LLM_CALL_TIMEOUT}s). Please try a simpler question or reduce the conversation history.")]}
+            
+            elapsed = time.monotonic() - llm_start
+            logger.info(f"[LIFECYCLE] LLM call completed in {elapsed:.1f}s, {len(token_buffer)} tokens, {len(full_content)} chars")
 
             # Broadcast collected tokens for the chat stream
             for tok in token_buffer:
@@ -190,6 +211,7 @@ async def node_tool_execution(state: GraphState) -> Dict[str, Any]:
     
     if last_msg and getattr(last_msg, "tool_calls", None):
         tc = last_msg.tool_calls[0]
+        logger.info(f"[LIFECYCLE] node_tool_execution — tool='{tc['name']}', args={json.dumps(tc['args'])[:200]}")
         t_hash = hash_tool_call(tc["name"], tc["args"])
         
         if t_hash in failed_tool_hashes:
@@ -214,6 +236,7 @@ async def node_tool_execution(state: GraphState) -> Dict[str, Any]:
                     timeout=TOOL_TIMEOUT_SECONDS
                 )
                 
+                logger.info(f"[LIFECYCLE] Tool '{tc['name']}' succeeded: {str(result)[:200]}")
                 return {
                     "messages": [ToolMessage(
                         content=str(result),
@@ -222,6 +245,7 @@ async def node_tool_execution(state: GraphState) -> Dict[str, Any]:
                     )]
                 }
             except asyncio.TimeoutError:
+                logger.error(f"[LIFECYCLE] Tool '{tc['name']}' TIMEOUT after {TOOL_TIMEOUT_SECONDS}s")
                 return {
                     "failed_tool_hashes": failed_tool_hashes + [t_hash],
                     "tool_error_count": tool_error_count + 1,
@@ -232,6 +256,7 @@ async def node_tool_execution(state: GraphState) -> Dict[str, Any]:
                     )]
                 }
             except Exception as e:
+                logger.error(f"[LIFECYCLE] Tool '{tc['name']}' FAILED: {e}")
                 return {
                     "failed_tool_hashes": failed_tool_hashes + [t_hash],
                     "tool_error_count": tool_error_count + 1,
@@ -246,6 +271,7 @@ async def node_tool_execution(state: GraphState) -> Dict[str, Any]:
 def node_review(state: GraphState) -> Dict[str, Any]:
     # Level 2 Protection: The Constitution Node (Overseer)
     overseer_count = state.get("overseer_invocation_count", 0) + 1
+    logger.info(f"[LIFECYCLE] node_review (Overseer) — invocation #{overseer_count}")
     
     # If the Overseer has already been invoked MAX_OVERSEER_RETRIES times, give up
     if overseer_count > settings.MAX_OVERSEER_RETRIES:
@@ -322,6 +348,7 @@ async def node_result(state: GraphState) -> Dict[str, Any]:
     """Experience Consolidation: Fire-and-forget skill save so the user isn't blocked."""
     current_task = state.get("current_task")
     messages = state.get("messages", [])
+    logger.info(f"[LIFECYCLE] node_result — intent='{current_task.intent if current_task else '?'}', total_messages={len(messages)}")
     if current_task:
         intent = current_task.intent
         history = "\n".join([m.content for m in messages if isinstance(m.content, str)])
